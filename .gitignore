@@ -1,0 +1,23 @@
+# dependencies & build
+node_modules/
+dist/
+build/
+.cache/
+.tmp/
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+*.log
+
+# environment / secrets
+backend/firebase-config.js
+.env
+*.env
+
+# IDE
+.vscode/
+.idea/
+
+# misc
+*.zip
