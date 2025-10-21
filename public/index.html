@@ -7,24 +7,23 @@
     <meta name="description" content="Banana Blitz - Test your banana counting skills in this fun guessing game!" />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap"
         rel="stylesheet" />
-    <link rel="icon" href="assets/images/logo.png" type="image/png" />
+    <link rel="icon" href="/public/assets/images/logo.png" type="image/png" />
     <title>Banana Blitz - Guess the Bananas!</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="/public/styles/main.css" />
 
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-    <script src="backend/firebase-config.js"></script>
+    <script src="/firebase/firebase-config.js"></script>
 
-    <script src="javascript/auth.js"></script>
-    <script src="javascript/multiplayer.js"></script>
-    <script src="javascript/leaderboard.js"></script>
-    <script src="javascript/friends.js"></script>
-    <script src="javascript/game.js"></script>
+    <script src="/public/scripts/auth.js"></script>
+    <script src="/public/scripts/multiplayer.js"></script>
+    <script src="/public/scripts/leaderboard.js"></script>
+    <script src="/public/scripts/friends.js"></script>
+    <script src="/public/scripts/game.js"></script>
 
 </head>
-
 <body
     class="min-h-screen flex flex-col bg-gradient-to-br from-yellow-100 to-yellow-300 font-poppins transition-colors duration-300 dark:bg-gradient-to-br dark:from-gray-900 dark:to-gray-800">
 
@@ -54,7 +53,7 @@
     <div id="loader"
         class="fixed inset-0 bg-gradient-to-br from-yellow-400 to-orange-500 z-50 flex flex-col items-center justify-center transition-opacity duration-500">
         <div class="relative">
-            <img src="assets/images/logo.png" alt="Loading banana"
+            <img src="/public/assets/images/logo.png" alt="Loading banana"
                 class="w-32 h-32 md:w-48 md:h-48 lg:w-64 lg:h-64 animate-bounce-slow" />
             <div class="absolute -inset-4 bg-yellow-300 rounded-full blur-xl opacity-50 animate-pulse"></div>
         </div>
@@ -128,7 +127,7 @@
             class="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-yellow-200 shadow-sm transition-colors duration-300 dark:bg-gray-900/80 dark:border-gray-700">
             <div class="container mx-auto px-4 py-3 flex justify-between items-center header-container">
                 <div class="flex items-center space-x-2">
-                    <img src="assets/images/logo.png" alt="Banana Blitz Logo"
+                    <img src="/public/assets/images/logo.png" alt="Banana Blitz Logo"
                         class="w-8 h-8 md:w-10 md:h-10 animate-wiggle" />
                     <h1 class="text-xl md:text-2xl font-bold text-yellow-600 dark:text-yellow-400">Banana Blitz</h1>
                 </div>
@@ -165,7 +164,7 @@
                     class="bg-white rounded-2xl shadow-xl p-6 md:p-8 border border-yellow-200 dark:bg-gray-800 dark:border-gray-700">
                     <div class="text-center mb-6 md:mb-8">
                         <div class="relative inline-block mb-4">
-                            <img src="assets/images/logo.png" alt="Banana Blitz"
+                            <img src="/public/assets/images/logo.png" alt="Banana Blitz"
                                 class="w-20 h-20 md:w-24 md:h-24 mx-auto animate-bounce-slow" />
                             <div class="absolute -inset-4 bg-yellow-300 rounded-full blur-xl opacity-30"></div>
                         </div>
@@ -1362,7 +1361,7 @@
         <div class="container mx-auto px-4 py-6">
             <div class="flex flex-col md:flex-row justify-between items-center">
                 <div class="flex items-center space-x-2 mb-4 md:mb-0">
-                    <img src="assets/images/logo.png" alt="Banana Blitz Logo"
+                    <img src="/public/assets/images/logo.png" alt="Banana Blitz Logo"
                         class="w-8 h-8 md:w-10 md:h-10 animate-wiggle" />
                     <span class="text-xl md:text-2xl font-bold text-yellow-600 dark:text-yellow-400">Banana Blitz</span>
                 </div>
@@ -1523,7 +1522,5 @@
             initTheme();
         });
     </script>
-
 </body>
-
 </html>
