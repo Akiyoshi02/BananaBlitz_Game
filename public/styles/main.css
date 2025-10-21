@@ -1,0 +1,226 @@
+@media (max-width: 640px) {
+    .container {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    .header-container {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    .menu-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .game-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .settings-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .mobile-flex-col {
+        flex-direction: column;
+    }
+
+    .mobile-full-width {
+        width: 100%;
+    }
+
+    .mobile-text-center {
+        text-align: center;
+    }
+
+    .mobile-p-4 {
+        padding: 1rem;
+    }
+
+    .mobile-p-2 {
+        padding: 0.5rem;
+    }
+
+    .mobile-space-y-4>*+* {
+        margin-top: 1rem;
+    }
+
+    .mobile-gap-4 {
+        gap: 1rem;
+    }
+
+    .mobile-hidden {
+        display: none;
+    }
+
+    .mobile-block {
+        display: block;
+    }
+
+    .mobile-flex {
+        display: flex;
+    }
+
+    .mobile-justify-center {
+        justify-content: center;
+    }
+
+    .mobile-items-center {
+        align-items: center;
+    }
+
+    .mobile-w-full {
+        width: 100%;
+    }
+
+    .mobile-h-auto {
+        height: auto;
+    }
+
+    .mobile-text-lg {
+        font-size: 1.125rem;
+    }
+
+    .mobile-text-xl {
+        font-size: 1.25rem;
+    }
+
+    .mobile-text-2xl {
+        font-size: 1.5rem;
+    }
+
+    .mobile-text-3xl {
+        font-size: 1.875rem;
+    }
+
+    .mobile-text-4xl {
+        font-size: 2.25rem;
+    }
+
+    .mobile-mb-4 {
+        margin-bottom: 1rem;
+    }
+
+    .mobile-mb-2 {
+        margin-bottom: 0.5rem;
+    }
+
+    .mobile-mt-4 {
+        margin-top: 1rem;
+    }
+
+    .mobile-mt-2 {
+        margin-top: 0.5rem;
+    }
+
+    .mobile-rounded-lg {
+        border-radius: 0.5rem;
+    }
+
+    .mobile-rounded-xl {
+        border-radius: 0.75rem;
+    }
+
+    .mobile-space-y-2>*+* {
+        margin-top: 0.5rem;
+    }
+
+    .mobile-space-x-2>*+* {
+        margin-left: 0.5rem;
+    }
+
+    .mobile-grid-cols-1 {
+        grid-template-columns: 1fr;
+    }
+
+    .mobile-grid-cols-2 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .tablet-flex-col {
+        flex-direction: column;
+    }
+
+    .tablet-grid-cols-1 {
+        grid-template-columns: 1fr;
+    }
+
+    .tablet-grid-cols-2 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .tablet-w-full {
+        width: 100%;
+    }
+
+    .tablet-text-center {
+        text-align: center;
+    }
+
+    .tablet-p-4 {
+        padding: 1rem;
+    }
+
+    .tablet-space-y-4>*+* {
+        margin-top: 1rem;
+    }
+}
+
+@media (max-width: 1024px) {
+    .laptop-grid-cols-2 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+#mobileMenu {
+    display: none;
+    position: fixed;
+    top: 0;
+    right: -100%;
+    width: 80%;
+    max-width: 300px;
+    height: 100vh;
+    background: white;
+    z-index: 100;
+    transition: right 0.3s ease;
+    box-shadow: -5px 0 15px rgba(0, 0, 0, 0.1);
+    padding: 1.5rem;
+    overflow-y: auto;
+}
+
+#mobileMenu.open {
+    display: block;
+    right: 0;
+}
+
+.dark #mobileMenu {
+    background: #1f2937;
+}
+
+#mobileMenuOverlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 99;
+}
+
+#mobileMenuOverlay.open {
+    display: block;
+}
+
+#mobileMenuBtn {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    #mobileMenuBtn {
+        display: block;
+    }
+
+    #desktopMenu {
+        display: none;
+    }
+}
