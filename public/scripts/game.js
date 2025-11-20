@@ -1,11 +1,120 @@
+const CLASSIC_LEVEL_TIERS = [
+  { levels: 1, timer: 60, label: 'Kickoff' },
+  { levels: 1, timer: 55, label: 'Sprint' },
+  { levels: 1, timer: 50, label: 'Momentum' },
+  { levels: 1, timer: 45, label: 'Rush' },
+  { levels: 2, timer: 40, label: 'Challenge' },
+  { levels: 2, timer: 35, label: 'Hardcore' },
+  { levels: 2, timer: 32, label: 'Blitz' },
+  { levels: 2, timer: 28, label: 'Extreme' },
+  { levels: 2, timer: 25, label: 'Overdrive' },
+  { levels: 3, timer: 22, label: 'Frenzy' },
+  { levels: 3, timer: 18, label: 'Chaos' },
+  { levels: Infinity, timer: 15, label: 'Legendary' }
+];
+
 class BananaBlitzGame {
+  initAvatarFeature() {
+    const avatarContainer = document.getElementById('profileAvatarContainer');
+    if (avatarContainer) {
+      if (this._avatarClickHandler) {
+        avatarContainer.removeEventListener('click', this._avatarClickHandler);
+      }
+      this._avatarClickHandler = () => window.openAvatarModal();
+      avatarContainer.addEventListener('click', this._avatarClickHandler);
+    }
+    this._selectedAvatar = null;
+    this._uploadedAvatarFile = null;
+  }
+
+  async renderPresetAvatars() {
+    const presetAvatars = [
+      'avatar1.png',
+      'avatar2.png',
+      'avatar3.png',
+      'avatar4.png',
+      'avatar5.png',
+      'avatar6.png',
+      'avatar7.png',
+      'avatar8.png',
+      'avatar9.png',
+      'avatar10.png'
+    ];
+    const container = document.getElementById('presetAvatars');
+    if (!container) return;
+    container.innerHTML = '';
+    presetAvatars.forEach(filename => {
+      const img = document.createElement('img');
+      img.src = `assets/images/avatars/${filename}`;
+      img.alt = 'Avatar';
+      img.className = 'w-14 h-14 rounded-full object-cover border-2 border-transparent cursor-pointer hover:border-yellow-500 transition-all';
+      img.onclick = () => {
+        this._selectedAvatar = img.src;
+        this._uploadedAvatarFile = null;
+        Array.from(container.children).forEach(child => child.classList.remove('ring-4', 'ring-yellow-400'));
+        img.classList.add('ring-4', 'ring-yellow-400');
+        // Update modal preview
+        const modalPreview = document.getElementById('avatarModalPreview');
+        const modalInitials = document.getElementById('avatarModalPreviewInitials');
+        const modalLabel = document.getElementById('avatarModalPreviewLabel');
+        if (modalPreview) {
+          modalPreview.src = img.src;
+          modalPreview.style.display = '';
+        }
+        if (modalInitials) modalInitials.style.display = 'none';
+        if (modalLabel) modalLabel.textContent = 'Selected Avatar';
+      };
+      container.appendChild(img);
+    });
+  }
+
+  async saveAvatarSelection() {
+    const user = this.auth.currentUser;
+    if (!user) return;
+    let avatarUrl = null;
+    if (this._uploadedAvatarFile) {
+      avatarUrl = await this.uploadAvatarToStorage(user.uid, this._uploadedAvatarFile);
+      try {
+        localStorage.setItem('customAvatar_' + user.uid, avatarUrl);
+        this.showToast('Custom avatar saved (local only)', 'success');
+      } catch (e) {
+        this.showToast('Failed to save avatar: storage full?', 'error');
+      }
+    } else if (this._selectedAvatar) {
+      avatarUrl = this._selectedAvatar;
+      await this.db.ref('users/' + user.uid + '/avatar').set(avatarUrl);
+      localStorage.removeItem('customAvatar_' + user.uid);
+      this.showToast('Avatar updated!', 'success');
+    }
+    const avatarImg = document.getElementById('profileAvatarImg');
+    const initialsCont = document.getElementById('profileInitialsContainer');
+    if (avatarUrl && avatarImg) {
+      avatarImg.src = avatarUrl;
+      avatarImg.style.display = '';
+      if (initialsCont) initialsCont.style.display = 'none';
+    } else {
+      if (avatarImg) avatarImg.style.display = 'none';
+      if (initialsCont) initialsCont.style.display = '';
+    }
+    this.loadProfile();
+    window.closeAvatarModal();
+  }
+
+  async uploadAvatarToStorage(uid, file) {
+    return new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onload = e => resolve(e.target.result);
+      reader.readAsDataURL(file);
+    });
+  }
+
   constructor() {
     this.gameMode = 'classic';
     this.dailyPageNum = 1;
     this.lastLbRows = [];
 
     this.usernameGlobal = null;
-    this.difficulty = localStorage.getItem('difficulty') || 'easy';
+    this.difficulty = localStorage.getItem('gameDifficulty') || 'normal';
     this.timerInterval = null;
     this.timeRemaining = 0;
     this.paused = false;
@@ -15,7 +124,6 @@ class BananaBlitzGame {
     this.dailyStreak = 0;
 
     this.bestStreak = 0;
-    this.fastestSolve = 0;
     this.sessionPoints = 0;
     this.lastGuessTs = 0;
 
@@ -26,16 +134,24 @@ class BananaBlitzGame {
     this.LOADER_MIN_MS = 1600;
 
     this.SKINS = ['skin-jungle', 'skin-neon', 'skin-mono'];
-    this.currentSkin = localStorage.getItem('skin') || '';
+    this.currentSkin = localStorage.getItem('gameSkin') || '';
     if (this.currentSkin) document.body.classList.add(this.currentSkin);
+
+    this.BGM_TRACKS = {
+      '': 'assets/audio/music/music-default yellow.mp3',
+      'skin-jungle': 'assets/audio/music/music-jungle adventure.mp3',
+      'skin-neon': 'assets/audio/music/music-neon nights.mp3',
+      'skin-mono': 'assets/audio/music/music-monochromatic.mp3',
+    };
 
     this.sounds = {
       click: new Audio('assets/audio/sfx/click.wav'),
       correct: new Audio('assets/audio/sfx/correct.mp3'),
       wrong: new Audio('assets/audio/sfx/wrong.wav'),
-      bgm: new Audio('assets/audio/music/music.mp3')
+      levelup: new Audio('assets/audio/sfx/level up.mp3'),
+      monkey: new Audio('assets/audio/sfx/monkey sound.mp3'),
+      bgm: new Audio(this.BGM_TRACKS[this.currentSkin] || this.BGM_TRACKS[''])
     };
-
     this.sounds.bgm.loop = true;
 
     this._bgmTriedAutoplay = false;
@@ -68,13 +184,20 @@ class BananaBlitzGame {
 
     this.maxLives = 3;
     this.lives = this.maxLives;
-    this.sessionDuration = 120;
-    this.sessionTimeRemaining = 0;
     this.sessionTimerInterval = null;
+    this.currentSessionRef = null;
+
+    this.currentLevel = 1;
+    this.puzzlesCompleted = 0;
+    this.puzzlesPerLevel = 5;
+    this.levelTimeRemaining = 0;
+    this.currentLevelTier = null;
+    this.lastAnnouncedTierLabel = null;
+    this._difficultyBannerTimeout = null;
+    this._pendingClassicTimerRestart = false;
 
     this.ACH = {
       STREAK_5: { name: 'Hot Streak', points: 50, description: 'Achieve a streak of 5 correct answers' },
-      SPEED_5: { name: 'Speed Demon', points: 30, description: 'Solve a puzzle in under 5 seconds' },
       PERFECT_GUESS: { name: 'Banana Master', points: 25, description: 'Guess the exact number of bananas' },
       FIRST_WIN: { name: 'First Blood', points: 10, description: 'Win your first game' },
       MULTIPLAYER_WIN: { name: 'Team Player', points: 40, description: 'Win a multiplayer game' },
@@ -99,7 +222,13 @@ class BananaBlitzGame {
     }
 
     this.authManager = new AuthManager(this);
+    this.auth.onAuthStateChanged((user) => {
+      if (user && !user.isAnonymous) {
+        this.leaderboardManager?.onAuthReady();
+      }
+    });
     this.leaderboardManager = new LeaderboardManager(this);
+    this._pendingLeaderboardLoad = false;
     this.multiplayerManager = new MultiplayerManager(this);
     this.friendsManager = new FriendsManager(this);
 
@@ -187,6 +316,385 @@ class BananaBlitzGame {
     this.preloadAssets();
     this.wireGameOverModalButtons();
     this.initCelebrations();
+    this.initScreensaver();
+  }
+
+  initScreensaver() {
+    // Screensaver configuration
+    const INACTIVITY_TIMEOUT = 6000; // 2 minutes in milliseconds
+    const screensaver = document.getElementById('screensaver');
+    const messageEl = document.getElementById('screensaverMessage');
+    const bananaContainer = document.getElementById('screensaverBananas');
+    const skyContainer = document.getElementById('screensaverSky');
+    if (!screensaver) return;
+
+    const skyThemes = {
+      morning: {
+        caption: 'Sunrise yawns over Banana Grove',
+        icon: '🌅',
+        elements: ['cloud cloud-1', 'cloud cloud-2', 'cloud cloud-3', 'cloud cloud-4', 'cloud cloud-5', 'cloud cloud-6', 'cloud cloud-7', 'sky-glow', 'sky-sun-rays', 'sparkle sparkle-1', 'sparkle sparkle-2', 'sparkle sparkle-3', 'sparkle sparkle-4']
+      },
+      afternoon: {
+        caption: 'Lazy clouds guard the midday jungle',
+        icon: '🌤️',
+        elements: ['cloud cloud-1', 'cloud cloud-2', 'cloud cloud-3', 'cloud cloud-4', 'cloud cloud-5', 'cloud cloud-6', 'cloud cloud-7', 'sky-glow', 'sparkle sparkle-1', 'sparkle sparkle-2', 'sparkle sparkle-3']
+      },
+      evening: {
+        caption: 'Twilight whispers the monkeys to sleep',
+        icon: '🌇',
+        elements: ['cloud cloud-1', 'cloud cloud-2', 'cloud cloud-3', 'cloud cloud-4', 'cloud cloud-5', 'cloud cloud-6', 'cloud cloud-7', 'sky-glow', 'sparkle sparkle-1', 'sparkle sparkle-2', 'sparkle sparkle-3', 'sparkle sparkle-4']
+      },
+      night: {
+        caption: 'Stars hush the bananas to dreamland',
+        icon: '🌙',
+        elements: ['star star-1', 'star star-2', 'star star-3', 'star star-4', 'star star-5', 'star star-6', 'star star-7', 'star star-8', 'star star-9', 'star star-10', 'star star-11', 'star star-12', 'star star-13', 'star star-14', 'star star-15', 'sky-moon-ring', 'shooting-star shooting-star-1', 'shooting-star shooting-star-2', 'shooting-star shooting-star-3', 'sparkle sparkle-1', 'sparkle sparkle-2', 'sparkle sparkle-3', 'sparkle sparkle-4', 'sparkle sparkle-5']
+      }
+    };
+    const SKY_THEME_CLASSES = ['sky-theme-morning', 'sky-theme-afternoon', 'sky-theme-evening', 'sky-theme-night'];
+
+    // Base funny messages that rotate
+    const baseFunnyMessages = [
+      "The monkey got tired of counting bananas... 🍌",
+      "Taking a banana break! 🍌😴",
+      "Even monkeys need rest sometimes... 🐵",
+      "Counting bananas is exhausting work! 🍌💤",
+      "The monkey is dreaming of infinite bananas... 🍌✨",
+      "Zzz... too many bananas to count... 🍌",
+      "Monkey's on a banana vacation! 🏖️🍌",
+      "The banana counter needs a nap! 🐵💤"
+    ];
+
+    // Fun facts about bananas
+    const bananaFacts = [
+      "Did you know? Bananas are berries! 🍌",
+      "Banana fact: They float in water! 🍌💧",
+      "Fun fact: Bananas are 75% water! 🍌",
+      "Bananas contain natural mood enhancers! 🍌😊",
+      "Did you know? Bananas can help you sleep! 🍌😴",
+      "Banana fact: They're rich in potassium! 🍌",
+      "Fun fact: Bananas grow on plants, not trees! 🍌🌱"
+    ];
+
+    // Motivational messages based on achievements
+    const getMotivationalMessages = () => {
+      const messages = [];
+      
+      // Streak-based messages
+      if (this.streak >= 10) {
+        messages.push("🔥 You're on fire! Amazing streak! 🔥");
+        messages.push("🔥 Unstoppable! Keep it going! 🔥");
+      } else if (this.streak >= 5) {
+        messages.push("⭐ Great streak! You're doing awesome! ⭐");
+        messages.push("🌟 Hot streak! Keep counting! 🌟");
+      } else if (this.streak > 0) {
+        messages.push("💪 Nice streak! Keep it up! 💪");
+      }
+      
+      // Best streak messages
+      if (this.bestStreak >= 20) {
+        messages.push("🏆 Legendary player! Incredible best streak! 🏆");
+      } else if (this.bestStreak >= 10) {
+        messages.push("⭐ Impressive best streak! You're a pro! ⭐");
+      }
+      
+      // Points-based messages
+      if (this.sessionPoints >= 500) {
+        messages.push("🎉 Incredible session! So many points! 🎉");
+      } else if (this.sessionPoints >= 200) {
+        messages.push("✨ Great progress! Keep it up! ✨");
+      } else if (this.sessionPoints > 0) {
+        messages.push("🍌 Nice work! Every banana counts! 🍌");
+      }
+      
+      // Level-based messages
+      if (this.currentLevel >= 10) {
+        messages.push("📈 High level player! You're a master! 📈");
+      } else if (this.currentLevel >= 5) {
+        messages.push("🚀 Leveling up! Great progress! 🚀");
+      }
+      
+      return messages;
+    };
+
+    const getTimeOfDayInfo = () => {
+      const hour = new Date().getHours();
+      if (hour >= 5 && hour < 12) return { greeting: 'Good morning', period: 'morning' };
+      if (hour >= 12 && hour < 17) return { greeting: 'Good afternoon', period: 'afternoon' };
+      if (hour >= 17 && hour < 21) return { greeting: 'Good evening', period: 'evening' };
+      return { greeting: 'Good night', period: 'night' };
+    };
+
+    const buildFunnyMessages = () => {
+      const { greeting } = getTimeOfDayInfo();
+      const motivational = getMotivationalMessages();
+      
+      return [
+        ...baseFunnyMessages,
+        ...motivational,
+        ...bananaFacts,
+        `${greeting}! Time for a banana break! 🍌`,
+        `${greeting}! The monkey is power napping. 🐵💤`,
+        `${greeting}! Banana dreams loading... 🍌✨`
+      ];
+    };
+
+    let funnyMessages = buildFunnyMessages();
+
+    let currentMessageIndex = 0;
+    let messageRotationInterval = null;
+    let bananaAnimationInterval = null;
+    let inactivityTimer = null;
+    let isScreensaverActive = false;
+    const applySkyTheme = () => {
+      if (!skyContainer) return;
+      const { period } = getTimeOfDayInfo();
+      const theme = skyThemes[period] || skyThemes.night;
+      
+      // Remove all theme classes
+      skyContainer.classList.remove(...SKY_THEME_CLASSES);
+      
+      // Apply time-based theme
+      skyContainer.classList.add(`sky-theme-${period}`);
+      
+      // Apply skin-based styling
+      const currentSkin = this.currentSkin || '';
+      skyContainer.classList.remove('skin-jungle', 'skin-neon', 'skin-mono');
+      if (currentSkin) {
+        skyContainer.classList.add(currentSkin);
+      }
+
+      // Separate unique elements (single instances) from repeating elements
+      const uniqueElements = ['sky-glow', 'sky-moon-ring', 'sky-sun-rays'];
+      const repeatingElements = theme.elements.filter(cls => {
+        const isUnique = uniqueElements.some(unique => cls.includes(unique));
+        const isSparkle = cls.includes('sparkle');
+        const isShootingStar = cls.includes('shooting-star');
+        return !isUnique && !isSparkle && !isShootingStar;
+      });
+      const uniqueElementClasses = theme.elements.filter(cls => uniqueElements.some(unique => cls.includes(unique)));
+      const sparkleElements = theme.elements.filter(cls => cls.includes('sparkle'));
+      const shootingStarElements = theme.elements.filter(cls => cls.includes('shooting-star'));
+      
+      const decorativeElements = repeatingElements
+        .map(cls => `<span class="sky-element ${cls}"></span>`)
+        .join('');
+      
+      const sparklesHTML = sparkleElements
+        .map(cls => `<span class="sky-sparkle ${cls}"></span>`)
+        .join('');
+      
+      const shootingStarsHTML = shootingStarElements
+        .map(cls => `<span class="sky-shooting-star ${cls}"></span>`)
+        .join('');
+      
+      const uniqueElementsHTML = uniqueElementClasses
+        .map(cls => {
+          if (cls === 'sky-glow') {
+            return '<span class="sky-glow"></span>';
+          } else if (cls === 'sky-moon-ring') {
+            return '<span class="sky-moon-ring"></span>';
+          } else if (cls === 'sky-sun-rays') {
+            return '<span class="sky-sun-rays"></span>';
+          }
+          return '';
+        })
+        .join('');
+
+      skyContainer.innerHTML = `
+        ${uniqueElementsHTML}
+        ${decorativeElements}
+        ${sparklesHTML}
+        ${shootingStarsHTML}
+        <div class="sky-icon">${theme.icon}</div>
+      `;
+    };
+
+    const refreshFunnyMessages = () => {
+      funnyMessages = buildFunnyMessages();
+      currentMessageIndex = 0;
+      if (messageEl) {
+        messageEl.style.opacity = '1';
+        messageEl.textContent = funnyMessages[0];
+      }
+      applySkyTheme();
+    };
+
+    // Create floating banana with enhanced animations
+    const createFloatingBanana = () => {
+      if (!bananaContainer || !isScreensaverActive) return;
+      
+      const banana = document.createElement('img');
+      banana.src = 'assets/images/banana.png';
+      banana.alt = 'banana';
+      banana.className = 'absolute pointer-events-none';
+      
+      const size = Math.random() * 30 + 20; // 20-50px
+      banana.style.width = size + 'px';
+      banana.style.height = 'auto';
+      banana.style.left = Math.random() * 100 + '%';
+      banana.style.top = '100%';
+      banana.style.opacity = Math.random() * 0.5 + 0.3;
+      banana.style.transform = `rotate(${Math.random() * 360}deg)`;
+      banana.style.filter = `drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2))`;
+      
+      // Random animation duration with more variety
+      const duration = Math.random() * 4 + 5; // 5-9 seconds
+      const rotationSpeed = Math.random() * 720 + 360; // 360-1080 degrees
+      banana.style.transition = `transform ${duration}s cubic-bezier(0.4, 0, 0.2, 1), opacity ${duration}s ease-out, filter ${duration}s ease-out`;
+      
+      bananaContainer.appendChild(banana);
+      
+      // Animate banana floating up with more dynamic movement
+      requestAnimationFrame(() => {
+        const endY = Math.random() * -60 - 30; // -30 to -90vh
+        const endX = (Math.random() - 0.5) * 150; // -75 to 75px
+        const scale = Math.random() * 0.3 + 0.7; // 0.7 to 1.0
+        banana.style.transform = `translate(${endX}px, ${endY}vh) rotate(${rotationSpeed}deg) scale(${scale})`;
+        banana.style.opacity = '0';
+        banana.style.filter = `drop-shadow(0 8px 16px rgba(0, 0, 0, 0.3))`;
+      });
+      
+      // Remove banana after animation
+      setTimeout(() => {
+        if (banana.parentNode) {
+          banana.remove();
+        }
+      }, duration * 1000);
+    };
+
+    // Rotate messages
+    const rotateMessage = () => {
+      if (!messageEl || !isScreensaverActive) return;
+      currentMessageIndex = (currentMessageIndex + 1) % funnyMessages.length;
+      messageEl.style.opacity = '0';
+      setTimeout(() => {
+        messageEl.textContent = funnyMessages[currentMessageIndex];
+        messageEl.style.opacity = '1';
+      }, 12000);
+    };
+
+    // Show screensaver with animations
+    const showScreensaver = () => {
+      if (isScreensaverActive || document.hidden) return;
+      
+      isScreensaverActive = true;
+      
+      // Apply theme to screensaver container
+      const currentSkin = this.currentSkin || '';
+      screensaver.classList.remove('skin-jungle', 'skin-neon', 'skin-mono');
+      if (currentSkin) {
+        screensaver.classList.add(currentSkin);
+      }
+      
+      // Refresh greetings/messages before showing (includes latest achievements)
+      refreshFunnyMessages();
+      
+      screensaver.classList.remove('hidden');
+      
+      // Fade in
+      requestAnimationFrame(() => {
+        screensaver.style.opacity = '1';
+      });
+      
+      // Play monkey sound
+      if (this.sounds && this.sounds.monkey && this.soundEnabled) {
+        try {
+          const monkeySound = this.sounds.monkey.cloneNode();
+          monkeySound.volume = this.sfxVolume / 100;
+          monkeySound.play().catch(() => {});
+        } catch (e) {}
+      }
+
+      // Start message rotation (every 4 seconds)
+      messageRotationInterval = setInterval(rotateMessage, 4000);
+      
+      // Start floating bananas (every 1.5 seconds)
+      bananaAnimationInterval = setInterval(createFloatingBanana, 1500);
+      createFloatingBanana(); // Create first one immediately
+    };
+
+    // Hide screensaver with animations
+    const hideScreensaver = () => {
+      if (!isScreensaverActive) return;
+      
+      isScreensaverActive = false;
+      
+      // Fade out
+      screensaver.style.opacity = '0';
+      
+      // Stop intervals
+      if (messageRotationInterval) {
+        clearInterval(messageRotationInterval);
+        messageRotationInterval = null;
+      }
+      if (bananaAnimationInterval) {
+        clearInterval(bananaAnimationInterval);
+        bananaAnimationInterval = null;
+      }
+      
+      // Clear bananas
+      if (bananaContainer) {
+        bananaContainer.innerHTML = '';
+      }
+      
+      // Hide after fade
+      setTimeout(() => {
+        if (!isScreensaverActive) {
+          screensaver.classList.add('hidden');
+        }
+      }, 700);
+    };
+
+    // Reset inactivity timer
+    const resetInactivityTimer = () => {
+      if (inactivityTimer) {
+        clearTimeout(inactivityTimer);
+      }
+      
+      // Hide screensaver if it's active
+      hideScreensaver();
+
+      // Set new timer
+      inactivityTimer = setTimeout(() => {
+        if (!document.hidden && !isScreensaverActive) {
+          showScreensaver();
+        }
+      }, INACTIVITY_TIMEOUT);
+    };
+
+    // Track various user activities
+    const activities = [
+      'mousedown',
+      'mousemove',
+      'keypress',
+      'scroll',
+      'touchstart',
+      'touchmove',
+      'click'
+    ];
+
+    activities.forEach(activity => {
+      document.addEventListener(activity, resetInactivityTimer, { passive: true });
+    });
+
+    // Also track visibility changes
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        // Pause timer when tab is hidden
+        if (inactivityTimer) {
+          clearTimeout(inactivityTimer);
+          inactivityTimer = null;
+        }
+        // Hide screensaver if visible
+        hideScreensaver();
+      } else {
+        // Resume timer when tab becomes visible
+        resetInactivityTimer();
+      }
+    });
+
+    // Initialize the timer
+    resetInactivityTimer();
   }
 
   setupEventListeners() {
@@ -198,6 +706,13 @@ class BananaBlitzGame {
         (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable === true);
 
       if (key === 'Enter') {
+        const celebration = document.getElementById('celebration');
+        if (celebration && !celebration.classList.contains('hidden')) {
+          e.preventDefault();
+          this.hideCelebration();
+          return;
+        }
+
         const authSection = document.getElementById('authSection');
         if (authSection && !authSection.classList.contains('hidden')) {
           if (!document.getElementById('loginForm').classList.contains('hidden')) {
@@ -243,8 +758,7 @@ class BananaBlitzGame {
         return;
       }
 
-
-      if (e.key === '?' && !isTypingTarget && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (e.key === '/' && !isTypingTarget && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
         this.showTutorial(30);
         e.preventDefault();
       }
@@ -254,24 +768,17 @@ class BananaBlitzGame {
         this.getHint();
         return;
       }
-
-      if (key.toLowerCase() === 'r' && !isTypingTarget && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        e.preventDefault();
-        const inGame = document.getElementById('gameSection');
-        if (inGame && !inGame.classList.contains('hidden')) {
-          this.showToast('Loading a new puzzle…');
-          this.loadPuzzle();
-        }
-        return;
-      }
     });
 
-    const themeBtn = document.getElementById('themeToggle');
-    if (themeBtn) themeBtn.addEventListener('click', () => this.toggleTheme());
+    // Theme toggle button uses onclick="toggleTheme()" handler
+    // No need for duplicate event listener here to avoid double-toggling
 
     document.getElementById('soundToggle')?.addEventListener('change', () => this.toggleSound());
     document.getElementById('musicToggle')?.addEventListener('change', () => this.toggleMusic());
-    document.getElementById('darkToggle')?.addEventListener('change', (e) => this.setTheme(e.target.checked));
+    document.getElementById('darkToggle')?.addEventListener('change', (e) => {
+      this.setTheme(e.target.checked);
+      this.claimAchievement('TOGGLE_THEME');
+    });
     document.getElementById('hcToggle')?.addEventListener('change', () => this.toggleHighContrast());
     document.getElementById('largeToggle')?.addEventListener('change', () => this.toggleLargeText());
     document.getElementById('rmToggle')?.addEventListener('change', () => this.toggleReducedMotion());
@@ -397,7 +904,7 @@ class BananaBlitzGame {
   }
 
   applySavedSettings() {
-    this.setTheme(localStorage.getItem('theme') === 'dark');
+    this.setTheme(localStorage.getItem('themeMode') === 'dark');
 
     if (localStorage.getItem('highContrast') === 'true') {
       document.body.classList.add('high-contrast');
@@ -429,6 +936,9 @@ class BananaBlitzGame {
     const musicToggle = document.getElementById('musicToggle');
     if (musicToggle) musicToggle.checked = this.musicEnabled;
 
+    const darkToggle = document.getElementById('darkToggle');
+    if (darkToggle) darkToggle.checked = (localStorage.getItem('themeMode') === 'dark');
+
     const mv = document.getElementById('musicVolume');
     const mvLabel = document.getElementById('musicVolumeValue');
     if (mv) mv.value = this.musicVolume;
@@ -454,7 +964,11 @@ class BananaBlitzGame {
       'assets/audio/sfx/click.wav',
       'assets/audio/sfx/correct.mp3',
       'assets/audio/sfx/wrong.wav',
-      'assets/audio/music/music.mp3'
+        'assets/audio/sfx/level up.mp3',
+      'assets/audio/music/music-default yellow.mp3',
+      'assets/audio/music/music-jungle adventure.mp3',
+      'assets/audio/music/music-monochromatic.mp3',
+      'assets/audio/music/music-neon nights.mp3'
     ];
     let loaded = 0;
     const updateLoader = () => {
@@ -498,14 +1012,17 @@ class BananaBlitzGame {
     const elapsed = performance.now() - this.loaderStart;
     const wait = Math.max(0, this.LOADER_MIN_MS - elapsed);
     setTimeout(() => {
-      document.getElementById('loader').classList.add('hidden');
-      document.getElementById('app').classList.remove('hidden');
+      const loaderText = document.getElementById('loaderText');
+      if (loaderText) loaderText.textContent = 'Verifying session...';
       this._setupAutoMusicGestureOnce();
       this._tryStartBgm();
-      this.authManager.showLogin();
-      if (localStorage.getItem('tourDone') !== '1') {
-        setTimeout(() => this.showTutorial(30), 400);
-      }
+      this.authManager.verifySessionAndShowUI(() => {
+        document.getElementById('loader').classList.add('hidden');
+        document.getElementById('app').classList.remove('hidden');
+        if (localStorage.getItem('tourDone') !== '1') {
+          setTimeout(() => this.showTutorial(30), 400);
+        }
+      });
     }, wait);
   }
 
@@ -586,16 +1103,26 @@ class BananaBlitzGame {
       return;
     }
 
+    // Avoid repeatedly adding spinners if already marked busy
+    if (busy) {
+      if (button.dataset.busy === 'true') return;
+      button.dataset.busy = 'true';
+    } else {
+      delete button.dataset.busy;
+    }
+
     button.disabled = busy;
     if (busy) {
       button.classList.add('opacity-75', 'pointer-events-none');
-      const originalText = button.textContent;
-      button.innerHTML = `<span class="inline-block animate-spin mr-2">⟳</span>${originalText}`;
-      button.dataset.originalText = originalText;
+      // Preserve full original HTML (so icons/images stay intact)
+      const originalHtml = button.dataset.originalHtml || button.innerHTML;
+      if (!button.dataset.originalHtml) button.dataset.originalHtml = originalHtml;
+      button.innerHTML = `<span class="inline-block animate-spin mr-2">⟳</span>${originalHtml}`;
     } else {
       button.classList.remove('opacity-75', 'pointer-events-none');
-      if (button.dataset.originalText) {
-        button.textContent = button.dataset.originalText;
+      if (button.dataset.originalHtml) {
+        button.innerHTML = button.dataset.originalHtml;
+        delete button.dataset.originalHtml;
       }
     }
   }
@@ -632,7 +1159,7 @@ class BananaBlitzGame {
   setTheme(isDark) {
     const root = document.documentElement;
     root.classList.toggle('dark', !!isDark);
-    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    localStorage.setItem('themeMode', isDark ? 'dark' : 'light');
 
     const chk = document.getElementById('darkToggle');
     if (chk && chk.checked !== isDark) chk.checked = isDark;
@@ -669,7 +1196,7 @@ class BananaBlitzGame {
 
   changeDifficulty() {
     this.difficulty = document.getElementById('difficultySelect').value;
-    localStorage.setItem('difficulty', this.difficulty);
+    localStorage.setItem('gameDifficulty', this.difficulty);
     this.playSound('click');
   }
 
@@ -681,7 +1208,21 @@ class BananaBlitzGame {
     if (this.currentSkin) {
       document.body.classList.add(this.currentSkin);
     }
-    localStorage.setItem('skin', this.currentSkin);
+    localStorage.setItem('gameSkin', this.currentSkin);
+
+    const newTrack = this.BGM_TRACKS[this.currentSkin] || this.BGM_TRACKS[''];
+    if (this.sounds.bgm) {
+      this.sounds.bgm.pause();
+      this.sounds.bgm.currentTime = 0;
+    }
+    this._bgmIsPlaying = false;
+    this.sounds.bgm = new Audio(newTrack);
+    this.sounds.bgm.loop = true;
+    this.sounds.bgm.volume = Math.min(1, (this.musicVolume || 0) / 100);
+    if (this.musicEnabled) {
+      this._tryStartBgm();
+    }
+
     this.playSound('click');
     this.claimAchievement('CHANGE_SKIN');
   }
@@ -752,19 +1293,80 @@ class BananaBlitzGame {
     this.lives = this.maxLives;
     this.updateLivesUI();
     document.getElementById('result').textContent = '';
-    this.startClassicSessionTimer();
+
+    this.currentLevel = 1;
+    this.puzzlesCompleted = 0;
+    this.lastAnnouncedTierLabel = null;
+    this._pendingClassicTimerRestart = false;
+
+    this.startLevelTimer();
+    this.updateProgressUI();
+    this.initializeGameSession();
     this.loadPuzzle();
   }
 
-  startClassicSessionTimer() {
+  getLevelTier() {
+    let levelPointer = this.currentLevel;
+    for (const tier of CLASSIC_LEVEL_TIERS) {
+      const span = tier.levels === Infinity ? Infinity : tier.levels;
+      if (span === Infinity || levelPointer <= span) {
+        this.currentLevelTier = tier;
+        return tier;
+      }
+      levelPointer -= span;
+    }
+    this.currentLevelTier = CLASSIC_LEVEL_TIERS[CLASSIC_LEVEL_TIERS.length - 1];
+    return this.currentLevelTier;
+  }
+
+  getDifficultyTimeMultiplier() {
+    if (this.difficulty === 'easy') return 1.3;
+    if (this.difficulty === 'hard') return 0.85;
+    return 1;
+  }
+
+  getEffectiveTierTime(tier = this.getLevelTier()) {
+    const selectedTier = tier || CLASSIC_LEVEL_TIERS[0];
+    const adjusted = Math.round(selectedTier.timer * this.getDifficultyTimeMultiplier());
+    return Math.max(10, adjusted);
+  }
+
+  getLevelTimeLimit() {
+    return this.getEffectiveTierTime();
+  }
+
+  startLevelTimer() {
     this.clearSessionTimer();
-    this.sessionTimeRemaining = this.sessionDuration;
+    const tier = this.getLevelTier();
+    const timeLimit = this.getEffectiveTierTime(tier);
+    this.levelTimeRemaining = timeLimit;
+    this.levelStartTime = Date.now();
+    this.updateDifficultyLabel(tier);
     this.updateSessionTimerBar();
+    this.announceDifficultyTier();
+
+    const sessionTimeEl = document.getElementById('sessionTime');
+    if (sessionTimeEl) sessionTimeEl.classList.remove('hidden');
+
     this.sessionTimerInterval = setInterval(() => {
-      this.sessionTimeRemaining--;
+      if (this.paused) {
+        return;
+      }
+
+      this.levelTimeRemaining--;
       this.updateSessionTimerBar();
-      if (this.sessionTimeRemaining <= 0) {
-        this.endClassicSession('⏰ Time up!');
+      if (this.levelTimeRemaining <= 0) {
+        this.clearSessionTimer();
+        this.lives--;
+        this.updateLivesUI();
+        this.showScorePopup('Life -1', '#d32f2f');
+
+        if (this.lives <= 0) {
+          this.endClassicSession('💔 Out of lives!');
+        } else {
+          this._pendingClassicTimerRestart = true;
+          this.loadPuzzle();
+        }
       }
     }, 1000);
   }
@@ -781,12 +1383,12 @@ class BananaBlitzGame {
     const snap = await ref.once('value');
     let data = snap.val();
 
-    if (data && data.question && typeof data.answer === 'number') {
+    if (data && data.question && typeof data.solution === 'number') {
       return data;
     }
 
     const fetched = await this.fetchBananaPuzzle();
-    const payload = { question: fetched.imageUrl, answer: fetched.answer };
+    const payload = { question: fetched.imageUrl, solution: fetched.answer };
 
     try {
       await ref.transaction(curr => (curr ? curr : payload));
@@ -805,26 +1407,154 @@ class BananaBlitzGame {
     }
   }
 
+  updateDifficultyLabel(tier) {
+    const info = tier || this.getLevelTier();
+    const labelEl = document.getElementById('difficultyLabel');
+    if (labelEl && info) {
+      labelEl.textContent = `${info.label} • ${this.getEffectiveTierTime(info)}s`;
+    }
+  }
+
+  announceDifficultyTier(force = false) {
+    const tier = this.getLevelTier();
+    if (!tier) return;
+    const isFirst = !this.lastAnnouncedTierLabel;
+    if (!force && !isFirst && tier.label === this.lastAnnouncedTierLabel) return;
+    this.lastAnnouncedTierLabel = tier.label;
+    const prefix = isFirst ? 'Difficulty' : 'Difficulty Up';
+    this.showDifficultyBanner(`${prefix}: ${tier.label} (${this.getEffectiveTierTime(tier)}s)`);
+  }
+
+  showDifficultyBanner(message) {
+    const banner = document.getElementById('difficultyChangeBanner');
+    if (!banner) return;
+    banner.textContent = message;
+    banner.classList.remove('hidden');
+    requestAnimationFrame(() => {
+      banner.classList.remove('opacity-0', '-translate-y-1');
+    });
+    clearTimeout(this._difficultyBannerTimeout);
+    this._difficultyBannerTimeout = setTimeout(() => {
+      banner.classList.add('opacity-0', '-translate-y-1');
+      setTimeout(() => {
+        banner.classList.add('hidden');
+      }, 300);
+    }, 2200);
+  }
+
   updateSessionTimerBar() {
     const bar = document.getElementById('timerBar');
     if (!bar) return;
-    const pct = Math.max(0, Math.min(100, (this.sessionTimeRemaining / this.sessionDuration) * 100));
+
+    const timeLimit = this.getLevelTimeLimit();
+    const pct = Math.max(0, Math.min(100, (this.levelTimeRemaining / timeLimit) * 100));
     bar.style.width = pct + '%';
     bar.style.background = pct <= 30
       ? 'linear-gradient(90deg,#ff9800,#f44336)'
       : 'linear-gradient(90deg,#81c784,#4caf50)';
     const label = document.getElementById('sessionTime');
-    if (label) label.textContent = `${this.sessionTimeRemaining}s`;
+    if (label) label.textContent = `${this.levelTimeRemaining}s`;
   }
 
   endClassicSession(reasonText) {
     this.clearSessionTimer();
     this.clearGameTimer();
 
-    const summary = `Final Score: ${this.sessionPoints} pts • Correct: ${this.sessionCorrect}/${this.sessionAttempts}`;
+    this.currentSessionRef = null;
+
+    const summary = `Final Score: ${this.sessionPoints} pts • Puzzles: ${this.puzzlesCompleted} • Level: ${this.currentLevel}`;
     this.showGameOverModal(reasonText, summary);
 
     this.showToast(`Game Over — ${reasonText}`, 'warning', 1800);
+  }
+
+  async checkLevelUp() {
+    const previousTier = this.getLevelTier();
+    const expectedLevel = Math.floor(this.puzzlesCompleted / 5) + 1;
+    const result = {
+      leveledUp: false,
+      tierChanged: false,
+      previousTier,
+      newTier: previousTier
+    };
+
+    if (expectedLevel > this.currentLevel) {
+      this.currentLevel = expectedLevel;
+
+      const levelBonus = this.currentLevel * 50;
+      this.sessionPoints += levelBonus;
+
+      this.startLevelTimer();
+
+      const newTier = this.getLevelTier();
+      result.leveledUp = true;
+      result.newTier = newTier;
+      result.tierChanged = (newTier?.label || '') !== (previousTier?.label || '');
+
+      if (result.tierChanged) {
+        this.lives = this.maxLives;
+        this.updateLivesUI();
+        this.playSound('levelup');
+      }
+
+      const toastSuffix = result.tierChanged
+        ? ` • Difficulty Up (${newTier?.label || 'New'}) • Lives Restored!`
+        : '';
+      this.showToast(`🎊 LEVEL ${this.currentLevel}! +${levelBonus} pts${toastSuffix}`, 'success', 3000);
+      this.updateProgressUI();
+      
+      // Update highest level and tier reached
+      await this.updateHighestLevelAndTier(this.currentLevel, newTier);
+    }
+
+    return result;
+  }
+
+  async updateHighestLevelAndTier(level, tier) {
+    const user = this.auth.currentUser;
+    if (!user) return;
+
+    try {
+      const userRef = this.db.ref('users/' + user.uid);
+      const snap = await userRef.once('value');
+      const curr = snap.val() || {};
+      
+      const updates = {};
+      
+      // Update highest level if current is higher
+      const highestLevel = curr.highestLevel || 0;
+      if (level > highestLevel) {
+        updates.highestLevel = level;
+      }
+      
+      // Update highest tier if current is higher
+      if (tier && tier.label) {
+        const tierOrder = CLASSIC_LEVEL_TIERS.findIndex(t => t.label === tier.label);
+        const currentHighestTierLabel = curr.highestTier || '';
+        const currentHighestTierOrder = CLASSIC_LEVEL_TIERS.findIndex(t => t.label === currentHighestTierLabel);
+        
+        // If no previous tier or current tier is higher in order
+        if (currentHighestTierOrder === -1 || tierOrder > currentHighestTierOrder) {
+          updates.highestTier = tier.label;
+        }
+      }
+      
+      if (Object.keys(updates).length > 0) {
+        await userRef.update(updates);
+      }
+    } catch (error) {
+      console.error('Failed to update highest level/tier:', error);
+    }
+  }
+
+  updateProgressUI() {
+    const levelEl = document.getElementById('currentLevel');
+    const puzzleProgressEl = document.getElementById('puzzleProgress');
+    if (levelEl) levelEl.textContent = this.currentLevel;
+    if (puzzleProgressEl) {
+      const puzzlesInLevel = this.puzzlesCompleted % 5;
+      puzzleProgressEl.textContent = `${puzzlesInLevel}/5`;
+    }
   }
 
   generateShareText() {
@@ -843,7 +1573,7 @@ class BananaBlitzGame {
     const shareData = { text, title: 'Banana Blitz' };
 
     if (navigator.share) {
-      try { await navigator.share(shareData); return; } catch (_) { /* fall through */ }
+      try { await navigator.share(shareData); return; } catch (_) { }
     }
 
     try {
@@ -900,34 +1630,59 @@ class BananaBlitzGame {
     this.resetPauseUI();
     this.hintUsed = false;
     const resultEl = document.getElementById('result');
-    if (resultEl) resultEl.textContent = 'Loading puzzle…';
+    if (resultEl) resultEl.innerHTML = '';
+    const loadingOverlay = document.getElementById('puzzleLoadingOverlay');
+    if (loadingOverlay) loadingOverlay.classList.remove('hidden');
     const pauseBtn = document.getElementById('pauseBtn');
     if (pauseBtn) pauseBtn.textContent = '⏸️ Pause';
 
     try {
+      console.log('🌐 Fetching puzzle from API...');
       const puzzleData = await this.fetchBananaPuzzle();
+      console.log('✅ Puzzle fetched:', puzzleData.answer);
       if (puzzleData.imageUrl && puzzleData.answer !== undefined) {
         this.currentPuzzleAnswer = puzzleData.answer;
         const img = document.getElementById('puzzleImage');
         img.classList.remove('fade-in');
-        img.src = puzzleData.imageUrl;
-        img.alt = 'Banana counting puzzle';
-        setTimeout(() => img.classList.add('fade-in'), 50);
-        if (resultEl) resultEl.textContent = '';
-
-        if (this.gameMode !== 'classic') {
-          this.startTimer();
-        }
-        this.focusGuess();
+        const preImg = new window.Image();
+        preImg.onload = () => {
+          img.src = puzzleData.imageUrl;
+          img.alt = 'Banana counting puzzle';
+          setTimeout(() => img.classList.add('fade-in'), 50);
+          if (loadingOverlay) loadingOverlay.classList.add('hidden');
+          if (resultEl) resultEl.textContent = '';
+          if (this.gameMode !== 'classic') {
+            this.startTimer();
+          } else if (this._pendingClassicTimerRestart) {
+            this.startLevelTimer();
+            this._pendingClassicTimerRestart = false;
+          }
+          this.focusGuess();
+        };
+        preImg.onerror = () => {
+          if (loadingOverlay) loadingOverlay.classList.add('hidden');
+          if (resultEl) resultEl.textContent = 'Failed to load puzzle image.';
+          this.showToast('⚠️ Puzzle image failed to load — retrying in 2s', 'warning');
+          setTimeout(() => this.loadPuzzle(), 2000);
+        };
+        preImg.src = puzzleData.imageUrl;
       } else {
+        if (loadingOverlay) loadingOverlay.classList.add('hidden');
         if (resultEl) resultEl.textContent = 'Failed to load puzzle from API.';
-        this.showToast('Retrying…');
-        setTimeout(() => this.loadPuzzle(), 700);
+        this.showToast('⚠️ Puzzle load failed — retrying in 2s', 'warning');
+        setTimeout(() => this.loadPuzzle(), 2000);
       }
     } catch (error) {
       console.error('Puzzle loading error:', error);
-      if (resultEl) resultEl.textContent = 'Network error loading puzzle.';
-      this.showToast('Network error. Tap Next or Retry soon.');
+      if (loadingOverlay) loadingOverlay.classList.add('hidden');
+      if (resultEl) resultEl.innerHTML = '❌ Network error loading puzzle.<br><button onclick="window.game.loadPuzzle()" class="mt-2 px-3 py-1 bg-yellow-500 text-white rounded-lg text-sm hover:bg-yellow-600">Retry Now</button>';
+      this.showToast('Network error. Click Retry or wait 5s', 'error', 5000);
+      setTimeout(() => {
+        const stillInGame = document.getElementById('gameSection');
+        if (stillInGame && !stillInGame.classList.contains('hidden') && resultEl?.textContent?.includes('Network error')) {
+          this.loadPuzzle();
+        }
+      }, 5000);
     }
   }
 
@@ -942,6 +1697,7 @@ class BananaBlitzGame {
       return { imageUrl: data.question, answer: data.solution };
     } catch (error) {
       console.error('API fetch error:', error);
+      this.showToast('⚠️ Banana API unavailable — using backup puzzle', 'warning', 3000);
       return await this.generateRandomPuzzle();
     }
   }
@@ -973,7 +1729,14 @@ class BananaBlitzGame {
   }
 
   getTimeLimit() {
-    const base = this.difficulty === 'hard' ? 15 : 30;
+    let base;
+    if (this.difficulty === 'hard') {
+      base = 15;
+    } else if (this.difficulty === 'normal') {
+      base = 20;
+    } else {
+      base = 30;
+    }
     const reduction = Math.min(10, Math.floor(this.streak / 3) * 2);
     return Math.max(5, base - reduction);
   }
@@ -1124,11 +1887,26 @@ class BananaBlitzGame {
 
     this.sessionAttempts++;
 
-    const basePoints = this.difficulty === 'hard' ? 15 : 10;
+    const solveTime = this.timerInterval ? ((this.getTimeLimit() - this.timeRemaining)) : 0;
+
+    let basePoints;
+    if (this.difficulty === 'hard') {
+      basePoints = 15;
+    } else if (this.difficulty === 'normal') {
+      basePoints = 12;
+    } else {
+      basePoints = 10;
+    }
     const hintPenalty = this.hintUsed ? 3 : 0;
     const comboMultiplier = 1 + Math.floor(this.streak / 3);
+
+    const levelTimeLimit = this.getLevelTimeLimit();
+    const timeSpent = levelTimeLimit - this.levelTimeRemaining;
+    const avgTimePerPuzzle = levelTimeLimit / this.puzzlesPerLevel;
+    const timeBonusMultiplier = timeSpent < avgTimePerPuzzle ? 1.5 : 1.0;
+
     const preClamp = Math.max(1, basePoints - hintPenalty);
-    const totalPoints = Math.min(25, preClamp) * comboMultiplier;
+    const totalPoints = Math.floor(preClamp * comboMultiplier * timeBonusMultiplier);
 
     const isCorrect = guess === this.currentPuzzleAnswer;
 
@@ -1138,22 +1916,31 @@ class BananaBlitzGame {
     }
 
     if (isCorrect) {
-      document.getElementById('result').textContent = `Correct! There are ${this.currentPuzzleAnswer} bananas! 🎉`;
       this.sessionCorrect++;
       this.streak++;
+      this.puzzlesCompleted++;
       this.sessionPoints += totalPoints;
       this.playSound('correct');
       this.showScorePopup(`+${totalPoints} pts 🏅`);
       this.spawnConfetti();
-      this.triggerCelebration();
       this.updateStatsUI();
+      this.updateProgressUI();
 
       if (this.streak === 5) await this.claimAchievement('STREAK_5');
       if (this.streak === 10) await this.claimAchievement('STREAK_10');
       if (guess === this.currentPuzzleAnswer) await this.claimAchievement('PERFECT_GUESS');
 
-      await this.updateUserStats(totalPoints, 0);
+      await this.updateUserStats(totalPoints, solveTime);
+
+      const levelInfo = await this.checkLevelUp();
+      const tier = levelInfo?.newTier;
+      const difficultyNotice = (levelInfo?.tierChanged && tier)
+        ? `Difficulty increased to ${tier.label} (${this.getEffectiveTierTime(tier)}s)`
+        : null;
+      this.triggerCelebration({ difficultyNotice });
+
     } else {
+      console.log('❌ WRONG ANSWER! Will load next puzzle after 1200ms delay');
       document.getElementById('result').textContent = `Incorrect. The answer was ${this.currentPuzzleAnswer}.`;
       this.playSound('wrong');
       this.showScorePopup('Life -1', '#d32f2f');
@@ -1169,15 +1956,17 @@ class BananaBlitzGame {
         this.endClassicSession('💔 Out of lives!');
         return;
       }
-    }
 
-    this.clearGameTimer();
-    setTimeout(() => {
-      const stillInGame = document.getElementById('gameSection');
-      if (stillInGame && !stillInGame.classList.contains('hidden') && this.gameMode === 'classic') {
-        this.loadPuzzle();
-      }
-    }, 1200);
+      this.clearGameTimer();
+      clearTimeout(this._nextPuzzleTimeout);
+      this._nextPuzzleTimeout = setTimeout(() => {
+        console.log('❌ Wrong answer timeout - loading next puzzle after 1200ms');
+        const stillInGame = document.getElementById('gameSection');
+        if (stillInGame && !stillInGame.classList.contains('hidden') && this.gameMode === 'classic') {
+          this.loadPuzzle();
+        }
+      }, 1200);
+    }
   }
 
   async updateUserStats(points, solveTime) {
@@ -1199,13 +1988,9 @@ class BananaBlitzGame {
       if (this.streak > bestStreakCurr) {
         updates.bestStreak = this.streak;
       }
-      const fsCurr = curr.fastestSolve;
-      if (solveTime > 0 && (fsCurr === undefined || fsCurr === null || solveTime < fsCurr)) {
-        updates.fastestSolve = Math.round(solveTime * 100) / 100;
-      }
     }
     await userRef.update(updates);
-    await this.recordGameSession(points, solveTime, points > 0);
+    await this.recordGameSession(points);
 
     const updatedSnap = await userRef.once('value');
     const updatedData = updatedSnap.val() || {};
@@ -1225,26 +2010,52 @@ class BananaBlitzGame {
     }
   }
 
-  async recordGameSession(points, solveTime, won) {
+  async initializeGameSession() {
     const user = this.auth.currentUser;
     if (!user) return;
+
     try {
-      const safePoints = Math.max(0, Math.min(points, 100));
-      const safeSolve = Math.max(0, Math.min(solveTime, 600));
+      if (!this.currentSessionRef) {
+        this.currentSessionRef = this.db.ref('gameSessions').push();
+        const username = this.usernameGlobal
+          || user.displayName
+          || (user.email ? user.email.split('@')[0] : 'Player');
+        await this.currentSessionRef.set({
+          userId: user.uid,
+          username,
+          points: 0,
+          streak: 0,
+          timestamp: firebase.database.ServerValue.TIMESTAMP,
+          mode: this.gameMode
+        });
+      }
+    } catch (error) {
+      console.error('Failed to initialize game session:', error);
+    }
+  }
+
+  async recordGameSession(points) {
+    const user = this.auth.currentUser;
+    if (!user) return;
+
+    try {
+      if (!this.currentSessionRef) {
+        await this.initializeGameSession();
+      }
+
+      const safePoints = Math.max(0, Math.min(this.sessionPoints, 1000));
       const safeStreak = Math.max(0, Math.min(this.streak, 999));
-      const username = this.usernameGlobal || user.displayName || user.email || 'Player';
-      const sessionRef = this.db.ref('gameSessions').push();
-      await sessionRef.set({
-        userId: user.uid,
-        username,
-        points: safePoints,
-        solveTime: safeSolve,
-        streak: safeStreak,
-        timestamp: firebase.database.ServerValue.TIMESTAMP,
-        mode: this.gameMode,
-        won: won,
-        puzzleAnswer: this.currentPuzzleAnswer
-      });
+
+      if (this.currentSessionRef) {
+        const userNameForSession = this.usernameGlobal
+          || this.auth.currentUser?.displayName
+          || (this.auth.currentUser?.email ? this.auth.currentUser.email.split('@')[0] : 'Player');
+        await this.currentSessionRef.update({
+          username: userNameForSession,
+          points: safePoints,
+          streak: safeStreak
+        });
+      }
     } catch (error) {
       console.error('Failed to record game session:', error);
     }
@@ -1254,7 +2065,6 @@ class BananaBlitzGame {
     if (document.getElementById('streak')) document.getElementById('streak').textContent = String(this.streak);
     if (document.getElementById('combo')) document.getElementById('combo').textContent = `x${1 + Math.floor(this.streak / 3)}`;
     if (document.getElementById('sessionPts')) document.getElementById('sessionPts').textContent = String(this.sessionPoints);
-    if (document.getElementById('fastest')) document.getElementById('fastest').textContent = this.fastestSolve ? `${this.fastestSolve}s` : '—';
   }
 
   updateLivesUI() {
@@ -1319,12 +2129,15 @@ class BananaBlitzGame {
   }
 
   async loadDailyPuzzle() {
+
     const resultEl = document.getElementById('dailyResult');
     const submitBtn = document.getElementById('dailySubmit');
     const img = document.getElementById('dailyImage');
     const meta = document.getElementById('dailyMeta');
+    const loadingOverlay = document.getElementById('dailyLoadingOverlay');
 
-    resultEl.textContent = 'Loading daily challenge…';
+    if (resultEl) resultEl.textContent = '';
+    if (loadingOverlay) loadingOverlay.classList.remove('hidden');
     this.setButtonBusy(submitBtn, true);
 
     const dateKey = this._getUTCDateKey();
@@ -1344,9 +2157,21 @@ class BananaBlitzGame {
 
       this.currentDailyAnswer = puzzle.solution;
       if (img) {
-        img.src = puzzle.question;
-        img.alt = 'Daily banana counting challenge';
-        img.classList.remove('fade-in'); void img.offsetWidth; img.classList.add('fade-in');
+        // Preload image before displaying to keep monkey.png visible during load
+        const preImg = new window.Image();
+        preImg.onload = () => {
+          img.src = puzzle.question;
+          img.alt = 'Daily banana counting challenge';
+          img.classList.remove('fade-in'); void img.offsetWidth; img.classList.add('fade-in');
+          if (loadingOverlay) loadingOverlay.classList.add('hidden');
+        };
+        preImg.onerror = () => {
+          if (loadingOverlay) loadingOverlay.classList.add('hidden');
+          this.showToast('⚠️ Puzzle image failed to load', 'warning');
+        };
+        preImg.src = puzzle.question;
+      } else {
+        if (loadingOverlay) loadingOverlay.classList.add('hidden');
       }
       if (meta) meta.textContent = `Daily Challenge for ${dateKey}`;
       resultEl.textContent = '';
@@ -1354,6 +2179,7 @@ class BananaBlitzGame {
       await this._reflectDailySolvedState(dateKey);
     } catch (err) {
       console.error('Daily puzzle loading error:', err);
+      if (loadingOverlay) loadingOverlay.classList.add('hidden');
       resultEl.textContent = 'Daily puzzle unavailable.';
     } finally {
       this.setButtonBusy(submitBtn, false);
@@ -1567,6 +2393,7 @@ class BananaBlitzGame {
 
   openProfile() {
     this.showSection('profileSection');
+    this.initAvatarFeature();
     this.loadProfile();
   }
 
@@ -1577,10 +2404,33 @@ class BananaBlitzGame {
       this.showSection('authSection');
       return;
     }
+
+    const profileStats = document.getElementById('profileStats');
+    const achList = document.getElementById('achList');
+
+    profileStats.innerHTML = '<div class="col-span-2 md:col-span-3 text-center py-8"><div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-600"></div><p class="mt-2 text-gray-600 dark:text-gray-300">Loading profile...</p></div>';
+    achList.innerHTML = '<li class="text-center text-gray-500 py-4"><div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-yellow-600"></div></li>';
+
     try {
       const userRef = this.db.ref('users/' + user.uid);
       const userSnapshot = await userRef.once('value');
       const userData = userSnapshot.val() || {};
+      const avatarImg = document.getElementById('profileAvatarImg');
+      const initialsCont = document.getElementById('profileInitialsContainer');
+      let avatarUrl = null;
+      try {
+        avatarUrl = localStorage.getItem('customAvatar_' + user.uid) || userData.avatar || null;
+      } catch (e) {
+        avatarUrl = userData.avatar || null;
+      }
+      if (avatarUrl && avatarImg) {
+        avatarImg.src = avatarUrl;
+        avatarImg.style.display = '';
+        if (initialsCont) initialsCont.style.display = 'none';
+      } else {
+        if (avatarImg) avatarImg.style.display = 'none';
+        if (initialsCont) initialsCont.style.display = '';
+      }
       const uaSnap = await this.db.ref(`userAchievements/${user.uid}`).once('value');
       const codes = uaSnap.val() || {};
       const achievements = Object.keys(codes)
@@ -1593,8 +2443,9 @@ class BananaBlitzGame {
       this.displayProfile(userData, achievements);
     } catch (error) {
       console.error('Profile loading error:', error);
-      document.getElementById('profileStats').innerHTML =
-        '<div class="text-center text-gray-500">Failed to load profile</div>';
+      profileStats.innerHTML = '<div class="col-span-2 md:col-span-3 text-center text-red-500 py-4"><p class="mb-2">❌ Failed to load profile</p><button onclick="window.game.loadProfile()" class="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600">Retry</button></div>';
+      achList.innerHTML = '<li class="text-center text-red-500 py-4">Failed to load achievements</li>';
+      this.showToast('Failed to load profile. Please check your connection.', 'error');
     }
   }
 
@@ -1604,41 +2455,95 @@ class BananaBlitzGame {
     if (initialsEl && userData.username) {
       initialsEl.textContent = userData.username.charAt(0).toUpperCase();
     }
+    window.openAvatarModal = function () {
+      const modal = document.getElementById('avatarModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      window.game.renderPresetAvatars();
+      // initialize modal preview from localStorage (custom) or saved avatar, or show initials
+      const modalPreview = document.getElementById('avatarModalPreview');
+      const modalInitials = document.getElementById('avatarModalPreviewInitials');
+      const modalLabel = document.getElementById('avatarModalPreviewLabel');
+      let avatarUrl = null;
+      let username = 'U';
+      try {
+        const uid = (window.game.auth && window.game.auth.currentUser && window.game.auth.currentUser.uid) || null;
+        avatarUrl = (uid ? userData.avatar : null) || null;
+        username = (userData.username || 'U');
+      } catch (e) {
+        avatarUrl = userData.avatar || null;
+      }
+      if (avatarUrl && modalPreview) {
+        modalPreview.src = avatarUrl;
+        modalPreview.style.display = '';
+        if (modalInitials) modalInitials.style.display = 'none';
+      } else {
+        if (modalPreview) modalPreview.style.display = 'none';
+        if (modalInitials) {
+          modalInitials.style.display = '';
+          const initialsSpan = document.getElementById('avatarModalPreviewInitial');
+          if (initialsSpan) initialsSpan.textContent = username.charAt(0).toUpperCase();
+        }
+      }
+      if (modalLabel) modalLabel.textContent = 'Present Avatar';
+    };
+    window.closeAvatarModal = function () {
+      document.getElementById('avatarModal').classList.add('hidden');
+      document.getElementById('avatarModal').classList.remove('flex');
+    };
+    window.saveAvatarSelection = function () {
+      window.game.saveAvatarSelection();
+    };
+    document.addEventListener('DOMContentLoaded', function () {
+      const input = document.getElementById('avatarUploadInput');
+      if (input) {
+        input.onchange = (e) => window.game.handleAvatarUploadInput(e);
+      }
+      if (window.game && window.game.initAvatarFeature) {
+        window.game.initAvatarFeature();
+      }
+    });
     const usernameEl = document.getElementById('profileUsername');
     if (usernameEl) usernameEl.textContent = userData.username || 'Player';
     const emailEl = document.getElementById('profileEmail');
     if (emailEl) emailEl.textContent = userData.email || '';
-    const pbFastest = (userData.fastestSolve ?? null) !== null ? `${userData.fastestSolve}s` : '—';
     const pbStreak = (userData.bestStreak ?? null) !== null ? userData.bestStreak : '0';
+    const dailyStreakDisplay = (userData.dailyStreak ?? null) !== null ? userData.dailyStreak : '0';
     document.getElementById('profileStats').innerHTML = ` 
     <div class="bg-yellow-50 p-4 rounded-xl dark:bg-gray-700"> 
-      <p class="font-bold text-yellow-600 dark:text-yellow-400">User:</p> 
-      <p>${userData.username || '(unknown)'}</p> 
-    </div> 
-    <div class="bg-yellow-50 p-4 rounded-xl dark:bg-gray-700"> 
       <p class="font-bold text-yellow-600 dark:text-yellow-400">Total Score:</p> 
-      <p>${userData.totalScore || 0}</p> 
-    </div> 
-    <div class="bg-yellow-50 p-4 rounded-xl dark:bg-gray-700"> 
-      <p class="font-bold text-yellow-600 dark:text-yellow-400">PB Fastest Solve:</p> 
-      <p>${pbFastest}</p> 
+      <p class="text-gray-800 dark:text-white">${userData.totalScore || 0}</p> 
     </div> 
     <div class="bg-yellow-50 p-4 rounded-xl dark:bg-gray-700"> 
       <p class="font-bold text-yellow-600 dark:text-yellow-400">PB Best Streak:</p> 
-      <p>${pbStreak}</p> 
+      <p class="text-gray-800 dark:text-white">${pbStreak}</p> 
     </div> 
     <div class="bg-yellow-50 p-4 rounded-xl dark:bg-gray-700"> 
+      <p class="font-bold text-yellow-600 dark:text-yellow-400">Daily Streak:</p> 
+      <p class="text-gray-800 dark:text-white">${dailyStreakDisplay} 🔥</p> 
+    </div>
+    <div class="bg-yellow-50 p-4 rounded-xl dark:bg-gray-700"> 
       <p class="font-bold text-yellow-600 dark:text-yellow-400">Rounds Played:</p> 
-      <p>${userData.gamesPlayed || 0}</p> 
+      <p class="text-gray-800 dark:text-white">${userData.gamesPlayed || 0}</p> 
     </div> 
     <div class="bg-yellow-50 p-4 rounded-xl dark:bg-gray-700"> 
       <p class="font-bold text-yellow-600 dark:text-yellow-400">Rounds Won:</p> 
-      <p>${userData.gamesWon || 0}</p> 
+      <p class="text-gray-800 dark:text-white">${userData.gamesWon || 0}</p> 
     </div> 
     <div class="bg-yellow-50 p-4 rounded-xl dark:bg-gray-700"> 
       <p class="font-bold text-yellow-600 dark:text-yellow-400">Accuracy:</p> 
-      <p>${accuracy}</p> 
+      <p class="text-gray-800 dark:text-white">${accuracy}</p> 
     </div>`;
+
+    // Update Classic Mode Progress section
+    const highestTierEl = document.getElementById('profileHighestTier');
+    const highestLevelEl = document.getElementById('profileHighestLevel');
+    if (highestTierEl) {
+      highestTierEl.textContent = userData.highestTier || '—';
+    }
+    if (highestLevelEl) {
+      highestLevelEl.textContent = (userData.highestLevel ?? null) !== null ? userData.highestLevel : '—';
+    }
 
     const achList = document.getElementById('achList');
     achList.innerHTML = '';
@@ -1650,6 +2555,19 @@ class BananaBlitzGame {
       return;
     }
 
+    const faIcons = {
+      STREAK_5: 'fa-fire',
+      SPEED_5: 'fa-bolt',
+      PERFECT_GUESS: 'fa-lemon',
+      FIRST_WIN: 'fa-trophy',
+      MULTIPLAYER_WIN: 'fa-users',
+      STREAK_10: 'fa-meteor',
+      DAILY_STREAK_7: 'fa-calendar-week',
+      FIRST_DAILY: 'fa-calendar-check',
+      CHANGE_SKIN: 'fa-paint-brush',
+      TOGGLE_THEME: 'fa-moon',
+      GAMES_WON_50: 'fa-medal'
+    };
     Object.entries(this.ACH).forEach(([code, { name, points, description }]) => {
       const isUnlocked = unlockedAchievementCodes.has(code);
       const li = document.createElement('li');
@@ -1657,13 +2575,15 @@ class BananaBlitzGame {
         ? 'bg-green-50 dark:bg-green-900/20'
         : 'bg-gray-100 dark:bg-gray-700/50 opacity-60'
         }`;
-      li.innerHTML = ` 
-        <span class="text-2xl">${isUnlocked ? '🏅' : '🔒'}</span> 
-        <div> 
-          <p class="font-bold ${isUnlocked ? 'text-green-700 dark:text-green-300' : 'text-gray-600 dark:text-gray-400'
-        }">${name}</p> 
-          <p class="text-sm ${isUnlocked ? 'text-gray-600 dark:text-gray-400' : 'text-gray-500 dark:text-gray-500'
-        }">${points} pts${description ? ` - ${description}` : ''}</p> 
+      let iconClass = faIcons[code] || 'fa-star';
+      let iconHtml = isUnlocked
+        ? `<i class=\"fas ${iconClass} achievement-badge-icon\"></i>`
+        : `<i class=\"fas fa-lock achievement-badge-icon\"></i>`;
+      li.innerHTML = `
+        <span class=\"text-2xl flex items-center justify-center w-8\">${iconHtml}</span>
+        <div>
+          <p class=\"font-bold ${isUnlocked ? 'text-green-700 dark:text-green-300' : 'text-gray-600 dark:text-gray-400'}\">${name}</p>
+          <p class=\"text-sm ${isUnlocked ? 'text-gray-600 dark:text-gray-400' : 'text-gray-500 dark:text-gray-500'}\">${points} pts${description ? ` - ${description}` : ''}</p>
         </div>`;
       achList.appendChild(li);
     });
@@ -1691,46 +2611,38 @@ class BananaBlitzGame {
   }
 
   initCelebrations() {
-    this._celebrationImages = [
-      'https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif',
-      'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcmJrOWd6YmZ3Ym1xNHN0ank1ZDBmMW9jcWdycGQwdXJoZXo2Z3JsNCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/bIEzoZX0qJaG6s6frc/giphy.gif',
-      'https://media.giphy.com/media/5GoVLqeAOo6PK/giphy.gif',
-      'https://media.giphy.com/media/111ebonMs90YLu/giphy.gif',
-      'https://media.giphy.com/media/3oz8xAFtqoOUUrsh7W/giphy.gif',
-      'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcmJrOWd6YmZ3Ym1xNHN0ank1ZDBmMW9jcWdycGQwdXJoZXo2Z3JsNCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/vmon3eAOp1WfK/giphy.gif',
-      'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcmJrOWd6YmZ3Ym1xNHN0ank1ZDBmMW9jcWdycGQwdXJoZXo2Z3JsNCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/o75ajIFH0QnQC3nCeD/giphy.gif',
-      'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcmJrOWd6YmZ3Ym1xNHN0ank1ZDBmMW9jcWdycGQwdXJoZXo2Z3JsNCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/t3sZxY5zS5B0z5zMIz/giphy.gif',
-      'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcmJrOWd6YmZ3Ym1xNHN0ank1ZDBmMW9jcWdycGQwdXJoZXo2Z3JsNCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/artj92V8o75VPL7AeQ/giphy.gif',
-      'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcmJrOWd6YmZ3Ym1xNHN0ank1ZDBmMW9jcWdycGQwdXJoZXo2Z3JsNCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/lMameLIF8voLu8HxWV/giphy.gif',
-      'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcmJrOWd6YmZ3Ym1xNHN0ank1ZDBmMW9jcWdycGQwdXJoZXo2Z3JsNCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/YTbZzCkRQCEJa/giphy.gif',
-      'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcmJrOWd6YmZ3Ym1xNHN0ank1ZDBmMW9jcWdycGQwdXJoZXo2Z3JsNCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/xT8qAY7e9If38xkrIY/giphy.gif',
-      'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcmJrOWd6YmZ3Ym1xNHN0ank1ZDBmMW9jcWdycGQwdXJoZXo2Z3JsNCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/GxIdtANXpn3qL1FG25/giphy.gif',
-      'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcmJrOWd6YmZ3Ym1xNHN0ank1ZDBmMW9jcWdycGQwdXJoZXo2Z3JsNCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/gFi7V9CRBQVW0/giphy.gif',
-      'https://media.giphy.com/media/v1.Y2lkPWVjZjA1ZTQ3cnY5bDFodDdlaWVnb2J3ZXVhejVwdGlnbGtodGFodHBxMWR6N3h4aiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/m8crpzTJFRDPhqqhXJ/giphy.gif',
-      'https://media.giphy.com/media/v1.Y2lkPWVjZjA1ZTQ3cnY5bDFodDdlaWVnb2J3ZXVhejVwdGlnbGtodGFodHBxMWR6N3h4aiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/1q9addeaZMx020Gv8u/giphy.gif',
-      'https://media.giphy.com/media/v1.Y2lkPWVjZjA1ZTQ3cnY5bDFodDdlaWVnb2J3ZXVhejVwdGlnbGtodGFodHBxMWR6N3h4aiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/OR1aQzSbvf4DrgX22C/giphy.gif',
-      'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcmJrOWd6YmZ3Ym1xNHN0ank1ZDBmMW9jcWdycGQwdXJoZXo2Z3JsNCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/26h0pHNtHKjmDo4WQ/giphy.gif',
-      'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcmJrOWd6YmZ3Ym1xNHN0ank1ZDBmMW9jcWdycGQwdXJoZXo2Z3JsNCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/doPrWYzSG1Vao/giphy.gif',
-      'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExc3gxZWFtcDY2cWI2cTA0ZWg2Mm4zMGg0Zzg4cmFmYzE0YTJ5cGdqaiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/NsBjgqR8jBy2mMptZF/giphy.gif',
-      'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExejUzN2tlZ3J6aXBpOTJmamZvbmQ1MWwxY2xxdmV4b29objBpc2pkayZlcD12MV9naWZzX3NlYXJjaCZjdD1n/ddHhhUBn25cuQ/giphy.gif',
-      'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExejUzN2tlZ3J6aXBpOTJmamZvbmQ1MWwxY2xxdmV4b29objBpc2pkayZlcD12MV9naWZzX3NlYXJjaCZjdD1n/s2qXK8wAvkHTO/giphy.gif',
-      'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExejUzN2tlZ3J6aXBpOTJmamZvbmQ1MWwxY2xxdmV4b29objBpc2pkayZlcD12MV9naWZzX3NlYXJjaCZjdD1n/F1P5wA3Ai0jFAAWQFA/giphy.gif',
-      'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExejUzN2tlZ3J6aXBpOTJmamZvbmQ1MWwxY2xxdmV4b29objBpc2pkayZlcD12MV9naWZzX3NlYXJjaCZjdD1n/m9cK1kd1qkowapgvEx/giphy.gif',
-      'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcmJrOWd6YmZ3Ym1xNHN0ank1ZDBmMW9jcWdycGQwdXJoZXo2Z3JsNCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/doPrWYzSG1Vao/giphy.gif',
-      'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExejUzN2tlZ3J6aXBpOTJmamZvbmQ1MWwxY2xxdmV4b29objBpc2pkayZlcD12MV9naWZzX3NlYXJjaCZjdD1n/Is1O1TWV0LEJi/giphy.gif',
-      'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExejUzN2tlZ3J6aXBpOTJmamZvbmQ1MWwxY2xxdmV4b29objBpc2pkayZlcD12MV9naWZzX3NlYXJjaCZjdD1n/okTPBH1snhbG0gQygg/giphy.gif',
-      'https://media.giphy.com/media/v1.Y2lkPWVjZjA1ZTQ3cTl4eGdtNmIzbWZmdmt3bWh2cnU0ODlqc3hzdWMxeWFjeWEzdDRqMCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/Yi7cN4zscHOZbtN1vc/giphy.gif',
-      'https://media.giphy.com/media/v1.Y2lkPWVjZjA1ZTQ3MW5kbWRoNTY5dzhlM3VwNDU4Zno5MXA2Ynp4NHB3ZGp3eTZuM3h3eCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/QlvPwCTw59B2E/giphy.gif',
-      'https://media.giphy.com/media/v1.Y2lkPWVjZjA1ZTQ3MW5kbWRoNTY5dzhlM3VwNDU4Zno5MXA2Ynp4NHB3ZGp3eTZuM3h3eCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/pOTvR5CtiB4sWMFHPG/giphy.gif',
-      'https://media.giphy.com/media/v1.Y2lkPWVjZjA1ZTQ3MW5kbWRoNTY5dzhlM3VwNDU4Zno5MXA2Ynp4NHB3ZGp3eTZuM3h3eCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/bD4tTQhR9KYL4EHuax/giphy.gif',
-      'https://media.giphy.com/media/v1.Y2lkPWVjZjA1ZTQ3MW5kbWRoNTY5dzhlM3VwNDU4Zno5MXA2Ynp4NHB3ZGp3eTZuM3h3eCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/zD26Xh2jJPBDy/giphy.gif',
-      'https://media.giphy.com/media/v1.Y2lkPWVjZjA1ZTQ3dzk4NnhtY2R6em5zbThuOXZnenJnano2ZWZpa2c0NnljMmExM2kxOSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/K4HXF5v3uAhQKuCOW5/giphy.gif',
-      'https://media.giphy.com/media/v1.Y2lkPWVjZjA1ZTQ3bWYwbmRlbjR3cndycjcyamVqemY1cTBsYzU4cmV6ZDZocml0dG9lYiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/KjnjFwDSTtljvhcKwC/giphy.gif',
-      'https://media.giphy.com/media/v1.Y2lkPWVjZjA1ZTQ3bWYwbmRlbjR3cndycjcyamVqemY1cTBsYzU4cmV6ZDZocml0dG9lYiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3o7abIileRivlGr8Nq/giphy.gif',
-      'https://media.giphy.com/media/v1.Y2lkPWVjZjA1ZTQ3dml2N2c3YXFveWRrMnMzaTFwZzIzdHdueG9xaDJ0dXY2Zmh4OHd5YyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/xThuWp2hJABbmc20Ew/giphy.gif',
-      'https://media.giphy.com/media/v1.Y2lkPWVjZjA1ZTQ3dml2N2c3YXFveWRrMnMzaTFwZzIzdHdueG9xaDJ0dXY2Zmh4OHd5YyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/6nuiJjOOQBBn2/giphy.gif',
-      'https://media.giphy.com/media/v1.Y2lkPWVjZjA1ZTQ3dml2N2c3YXFveWRrMnMzaTFwZzIzdHdueG9xaDJ0dXY2Zmh4OHd5YyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/htHMAjOrrDcUXW7Bn8/giphy.gif',
-    ];
+    const GIPHY_API_KEY = window.MultiplayerManager?.GIPHY_API_KEY || 'Xfe5LwxHwFbmfi7IAVXBMfwaI1NE48uu';
+    this._celebrationImages = [];
+    fetch(`https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&q=celebration&limit=30&rating=pg`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.data && data.data.length) {
+          this._celebrationImages = data.data.map(gif => gif.images.original.url);
+        }
+        this._shuffleCelebrationImages();
+        this._cacheCelebrationImages();
+      })
+      .catch(() => {
+        this._celebrationImages = ['https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif'];
+        this._shuffleCelebrationImages();
+        this._cacheCelebrationImages();
+      });
+
+    this._shuffleCelebrationImages = function () {
+      this._celebrationQueue = this._celebrationImages.slice();
+      for (let i = this._celebrationQueue.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [this._celebrationQueue[i], this._celebrationQueue[j]] = [this._celebrationQueue[j], this._celebrationQueue[i]];
+      }
+    };
+    this._cacheCelebrationImages = function () {
+      this._celebrationCache = new Map();
+      this._celebrationQueue.forEach(url => {
+        const img = new Image();
+        img.src = url;
+        this._celebrationCache.set(url, img);
+      });
+    };
 
     this._celebrationQueue = this._celebrationImages.slice();
     for (let i = this._celebrationQueue.length - 1; i > 0; i--) {
@@ -1755,9 +2667,10 @@ class BananaBlitzGame {
     return url;
   }
 
-  async triggerCelebration({ autoHideMs = 2500 } = {}) {
+  async triggerCelebration({ autoHideMs = 2500, difficultyNotice = null } = {}) {
     const wrap = document.getElementById('celebration');
     const imgEl = document.getElementById('celebrationGif');
+    const diffEl = document.getElementById('celebrationDifficultyNotice');
 
     wrap?.classList.remove('hidden');
     if (!imgEl) return;
@@ -1788,16 +2701,46 @@ class BananaBlitzGame {
     imgEl.src = chosen || 'assets/images/logo.png';
     imgEl.onerror = function () { this.src = 'assets/images/logo.png'; };
 
+    if (diffEl) {
+      if (difficultyNotice) {
+        diffEl.textContent = difficultyNotice;
+        diffEl.classList.remove('hidden');
+      } else {
+        diffEl.textContent = '';
+        diffEl.classList.add('hidden');
+      }
+    }
+
     if (autoHideMs && wrap) {
       clearTimeout(this._celebrationHideT);
-      this._celebrationHideT = setTimeout(() => wrap.classList.add('hidden'), autoHideMs);
+      this._celebrationHideT = setTimeout(() => {
+        console.log('🎉 Celebration auto-hiding after', autoHideMs, 'ms - loading next puzzle');
+        wrap.classList.add('hidden');
+        if (this.gameMode === 'classic') {
+          this.loadPuzzle();
+        }
+      }, autoHideMs);
     }
   }
 
   hideCelebration() {
+
+    if (this._isHidingCelebration) {
+      console.log('⚠️ Already hiding celebration, ignoring duplicate call');
+      return;
+    }
+    this._isHidingCelebration = true;
+
+    clearTimeout(this._nextPuzzleTimeout);
+    clearTimeout(this._celebrationHideT);
     document.getElementById('celebration').classList.add('hidden');
     document.getElementById('celebrationGif').src = '';
+
     this.loadPuzzle();
+
+    setTimeout(() => {
+      this._isHidingCelebration = false;
+    }, 500);
   }
 
   showScorePopup(text, color = '#4caf50') {
@@ -1845,6 +2788,9 @@ class BananaBlitzGame {
   returnToMenu() {
     this.clearGameTimer();
     this.clearSessionTimer();
+
+    this.currentSessionRef = null;
+
     this.showSection('menuSection');
     this.playSound('click');
   }
@@ -1871,24 +2817,117 @@ class BananaBlitzGame {
   }
 
   resetProgress() {
-    if (confirm('Are you sure you want to reset all local progress? This cannot be undone.')) {
+    const toast = document.getElementById('toast');
+    const toastIcon = document.getElementById('toastIcon');
+    const toastMessage = document.getElementById('toastMessage');
+    if (!toast || !toastIcon || !toastMessage) return;
+
+    toastIcon.textContent = '⚠️';
+    toastMessage.innerHTML = `Are you sure you want to reset all local progress? <br><span class='text-xs opacity-80'>This cannot be undone.</span><br><button id='resetConfirmBtn' class='mt-2 bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded-xl transition-all shadow-md text-xs'>Reset</button> <button id='resetCancelBtn' class='mt-2 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-1 px-3 rounded-xl transition-all text-xs ml-2'>Cancel</button>`;
+    toast.classList.remove('opacity-0', 'pointer-events-none');
+    toast.classList.add('opacity-100');
+
+    let toastTimeout = setTimeout(() => {
+      toast.classList.remove('opacity-100');
+      toast.classList.add('opacity-0', 'pointer-events-none');
+    }, 8000);
+
+    let resetBtn, cancelBtn;
+
+    const cleanup = () => {
+      clearTimeout(toastTimeout);
+      toast.classList.remove('opacity-100');
+      toast.classList.add('opacity-0', 'pointer-events-none');
+      if (resetBtn) resetBtn.removeEventListener('click', onConfirm);
+      if (cancelBtn) cancelBtn.removeEventListener('click', onCancel);
+    };
+    const onConfirm = () => {
       localStorage.clear();
+      localStorage.setItem('themeMode', 'light');
+      localStorage.setItem('soundEnabled', 'true');
+      localStorage.setItem('sfxVolume', '40');
+      localStorage.setItem('musicEnabled', 'true');
+      localStorage.setItem('musicVolume', '45');
+      localStorage.setItem('highContrast', 'false');
+      localStorage.setItem('largeText', 'false');
+      localStorage.setItem('reducedMotion', 'false');
+      localStorage.setItem('gameDifficulty', 'normal');
+      localStorage.setItem('gameSkin', '');
+
+      this.soundEnabled = true;
+      this.musicEnabled = true;
+      this.difficulty = 'normal';
+      this.currentSkin = '';
+      const soundToggle = document.getElementById('soundToggle');
+      if (soundToggle) soundToggle.checked = true;
+      const musicToggle = document.getElementById('musicToggle');
+      if (musicToggle) musicToggle.checked = true;
+      const diffSelect = document.getElementById('difficultySelect');
+      if (diffSelect) diffSelect.value = 'normal';
+      const skinSelect = document.getElementById('skinSelect');
+      if (skinSelect) skinSelect.value = '';
+
       this.applySavedSettings();
+      this.changeSkin();
+      document.body.classList.remove('high-contrast', 'large-text', 'reduced-motion');
+      const hcToggle = document.getElementById('hcToggle');
+      if (hcToggle) hc.checked = false;
+      const largeToggle = document.getElementById('largeToggle');
+      if (largeToggle) largeToggle.checked = false;
+      const rmToggle = document.getElementById('rmToggle');
+      if (rmToggle) rmToggle.checked = false;
+      const mobileThemeIcon = document.getElementById('mobileThemeIcon');
+      if (mobileThemeIcon) mobileThemeIcon.textContent = '🌞';
+      const mobileThemeToggle = document.getElementById('mobileThemeToggle');
+      if (mobileThemeToggle) mobileThemeToggle.setAttribute('data-theme', 'light');
+      const sfx = document.getElementById('sfxVolume');
+      const sfxLabel = document.getElementById('sfxVolumeValue');
+      let sfxValue = 40;
+      if (sfx) {
+        sfx.value = 40;
+        sfx.disabled = false;
+        sfx.removeAttribute('readonly');
+        sfxValue = 40;
+        if (sfxLabel) sfxLabel.textContent = '40%';
+      }
+      this.sfxVolume = sfxValue;
+      Object.values(this.sounds).forEach(snd => { if (snd !== this.sounds.bgm) snd.volume = sfxValue / 100; });
+      const mv = document.getElementById('musicVolume');
+      const mvLabel = document.getElementById('musicVolumeValue');
+      let musicValue = 45;
+      if (mv) {
+        mv.value = 45;
+        musicValue = 45;
+        if (mvLabel) mvLabel.textContent = '45%';
+      }
+      this.musicVolume = musicValue;
+      if (this.sounds?.bgm) this.sounds.bgm.volume = Math.min(1, (musicValue || 0) / 100);
       this.showToast('Local progress reset', 'success');
-    }
+      cleanup();
+    };
+    const onCancel = () => {
+      this.showToast('Reset cancelled', 'info');
+      cleanup();
+    };
+    setTimeout(() => {
+      resetBtn = document.getElementById('resetConfirmBtn');
+      cancelBtn = document.getElementById('resetCancelBtn');
+      if (resetBtn) resetBtn.addEventListener('click', onConfirm);
+      if (cancelBtn) cancelBtn.addEventListener('click', onCancel);
+    }, 50);
   }
 
   exportData() {
     const data = {
       settings: {
-        theme: localStorage.getItem('theme'),
+        theme: localStorage.getItem('themeMode'),
         soundEnabled: localStorage.getItem('soundEnabled'),
         sfxVolume: localStorage.getItem('sfxVolume'),
         highContrast: localStorage.getItem('highContrast'),
         largeText: localStorage.getItem('largeText'),
         reducedMotion: localStorage.getItem('reducedMotion'),
-        difficulty: localStorage.getItem('difficulty'),
-        skin: localStorage.getItem('skin'),
+        difficulty: localStorage.getItem('gameDifficulty'),
+        skin: localStorage.getItem('gameSkin'),
         tourDone: localStorage.getItem('tourDone')
       }
     };
@@ -1941,7 +2980,30 @@ document.addEventListener('DOMContentLoaded', () => {
   window.game = new BananaBlitzGame();
 });
 
-window.toggleTheme = () => window.game.toggleTheme();
+window.toggleTheme = () => {
+  if (window.game?.toggleTheme) {
+    window.game.toggleTheme();
+  } else {
+    // Fallback when window.game is not initialized yet (e.g., on Login UI)
+    const isDark = document.documentElement.classList.contains('dark');
+    const newIsDark = !isDark;
+    document.documentElement.classList.toggle('dark', newIsDark);
+    localStorage.setItem('themeMode', newIsDark ? 'dark' : 'light');
+    
+    // Update theme icons
+    const themeIcon = document.getElementById('themeIcon');
+    const mobileThemeIcon = document.getElementById('mobileThemeIcon');
+    if (themeIcon) themeIcon.textContent = newIsDark ? '🌙' : '🌞';
+    if (mobileThemeIcon) mobileThemeIcon.textContent = newIsDark ? '🌙' : '🌞';
+    
+    // Update darkToggle checkbox if it exists
+    const chk = document.getElementById('darkToggle');
+    if (chk && chk.checked !== newIsDark) chk.checked = newIsDark;
+    
+    // Dispatch theme change event
+    window.dispatchEvent(new CustomEvent('themechange', { detail: { isDark: newIsDark } }));
+  }
+};
 window.showHelp = () => window.game.showTutorial(30);
 window.toggleSound = () => window.game.toggleSound();
 window.toggleMusic = () => window.game.toggleMusic();
@@ -1967,6 +3029,7 @@ window.goToMultiplayer = () => window.game.goToMultiplayer();
 window.submitMultiplayerGuess = () => window.game.submitMultiplayerGuess();
 window.createRoom = () => window.game.multiplayerManager.createRoom();
 window.joinRoom = () => window.game.multiplayerManager.joinRoom();
+window.playOnline = () => window.game.multiplayerManager.playOnline();
 window.leaveRoom = () => window.game.multiplayerManager.leaveRoom();
 window.toggleReady = () => window.game.multiplayerManager.toggleReady();
 window.startGame = () => window.game.multiplayerManager.startGame();
@@ -1983,7 +3046,16 @@ window.dailyPage = (delta) => window.game.leaderboardManager.dailyPage(delta);
 window.resetProgress = () => window.game.resetProgress();
 window.exportData = () => window.game.exportData();
 
-window.loginWithGoogle = () => window.game.authManager.loginWithGoogle();
+window.loginWithGoogle = (mode) => window.game.authManager.loginWithGoogle(mode);
+window.openChangePasswordModal = () => window.game.authManager.openChangePasswordModal();
+window.closeChangePasswordModal = () => window.game.authManager.closeChangePasswordModal();
+window.submitChangePasswordModal = () => window.game.authManager.submitChangePasswordModal();
+window.linkGoogleAccount = () => window.game.authManager.linkGoogleAccount();
+window.openAccountRecovery = () => window.game.authManager.openAccountRecovery();
+window.closeAccountRecovery = () => window.game.authManager.closeAccountRecovery();
+window.recoverUsernameFromEmail = () => window.game.authManager.recoverUsernameFromEmail();
+window.recoverEmailFromUsername = () => window.game.authManager.recoverEmailFromUsername();
+window.sendRecoveryPasswordEmail = () => window.game.authManager.sendRecoveryPasswordEmail();
 
 window.changeUsername = () => window.game.authManager.startChangeUsername();
 window.openChangeUsername = () => window.game.authManager.openChangeUsernameModal();

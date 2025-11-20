@@ -23,7 +23,6 @@ class LeaderboardManager {
 
     try {
       await this.loadLeaderboard();
-      this.game.showToast('Leaderboard updated ✅', 'success');
     } catch (e) {
       console.error(e);
       this.game.showToast('Refresh failed. Try again.', 'error');
@@ -35,7 +34,18 @@ class LeaderboardManager {
   }
 
   async loadLeaderboard() {
+    const list = document.getElementById('leaderboardList');
+    list.innerHTML = '<li class="text-center text-gray-500 py-4"><div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-600"></div><p class="mt-2">Loading leaderboard...</p></li>';
+
     try {
+      const user = this.game.auth?.currentUser;
+      if (!user || user.isAnonymous) {
+        list.innerHTML = '<li class="text-center text-yellow-600 dark:text-yellow-400 py-4">Sign in to view the leaderboard.</li>';
+        this.game.showToast('Sign in to view the leaderboard.', 'warning');
+        this.game._pendingLeaderboardLoad = true;
+        return;
+      }
+
       const topSnap = await this.db.ref('users')
         .orderByChild('totalScore')
         .limitToLast(this.pageSize)
@@ -54,13 +64,11 @@ class LeaderboardManager {
           uid: cs.key,
           username,
           totalScore: v.totalScore || 0,
-          bestStreak: v.bestStreak || 0,
-          fastestSolve: v.fastestSolve || 0
+          bestStreak: v.bestStreak || 0
         });
       });
       topPlayers.sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0));
 
-      const user = this.game.auth.currentUser;
       let yourRow = null;
 
       if (user) {
@@ -110,6 +118,7 @@ class LeaderboardManager {
       this.game.showSection('leaderboardSection');
     } catch (error) {
       console.error('Failed to load leaderboard:', error);
+      list.innerHTML = '<li class="text-center text-red-500 py-4"><p class="mb-2">❌ Failed to load leaderboard</p><button onclick="window.game.leaderboardManager.loadLeaderboard()" class="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600">Retry</button></li>';
       this.game.showToast('Failed to load leaderboard. Please check your connection.', 'error');
     }
   }
@@ -185,7 +194,18 @@ class LeaderboardManager {
   }
 
   async loadDailyLeaderboard() {
+    const list = document.getElementById('dailyLb');
+    list.innerHTML = '<li class="text-center text-gray-500 py-4"><div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-yellow-600"></div></li>';
+
     try {
+      const user = this.game.auth?.currentUser;
+      if (!user || user.isAnonymous) {
+        list.innerHTML = '<li class="text-center text-yellow-600 dark:text-yellow-400 py-4">Sign in to view daily standings.</li>';
+        this.game.showToast('Sign in to view the daily leaderboard.', 'warning');
+        this.game._pendingLeaderboardLoad = true;
+        return;
+      }
+
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const startTs = today.getTime();
@@ -202,6 +222,7 @@ class LeaderboardManager {
         const s = childSnapshot.val();
         if (!s || !s.userId) return;
         if (s.timestamp < startTs) return;
+        if (s.mode !== 'daily') return;
 
         const prev = byUser.get(s.userId);
         const score = s.points || 0;
@@ -211,7 +232,6 @@ class LeaderboardManager {
             userId: s.userId,
             username: s.username,
             score: score,
-            solveTime: s.solveTime,
             timestamp: s.timestamp
           });
         }
@@ -226,6 +246,7 @@ class LeaderboardManager {
       if (info) info.textContent = `Page ${this.game.dailyPageNum}`;
     } catch (error) {
       console.error('Failed to load daily leaderboard:', error);
+      list.innerHTML = '<li class="text-center text-red-500 py-4"><p class="mb-2">❌ Failed to load</p><button onclick="window.game.leaderboardManager.loadDailyLeaderboard()" class="px-3 py-1 bg-yellow-500 text-white rounded-lg text-sm hover:bg-yellow-600">Retry</button></li>';
       this.game.showToast('Failed to load daily leaderboard', 'error');
     }
   }
@@ -244,6 +265,10 @@ class LeaderboardManager {
     players.forEach((player, index) => {
       const rank = index + 1;
       const isCurrentUser = currentUid && (player.userId === currentUid);
+      const fallbackYou = this.game.usernameGlobal
+        || this.game.auth?.currentUser?.displayName
+        || (this.game.auth?.currentUser?.email ? this.game.auth.currentUser.email.split('@')[0] : 'You');
+      const displayName = player.username || (isCurrentUser ? fallbackYou : 'Player');
 
       const item = document.createElement('li');
       item.className = `flex justify-between items-center p-3 rounded-lg ${isCurrentUser ? 'bg-yellow-100 dark:bg-yellow-900' : 'bg-gray-100 dark:bg-gray-700'
@@ -255,12 +280,11 @@ class LeaderboardManager {
           ${rank}.
         </span>
         <span class="font-medium ${isCurrentUser ? 'text-yellow-700 dark:text-yellow-300' : 'text-gray-800 dark:text-white'}">
-          ${player.username} ${isCurrentUser ? '(You)' : ''}
+          ${displayName} ${isCurrentUser ? '(You)' : ''}
         </span>
       </div>
       <div class="text-right">
         <div class="font-bold text-yellow-600 dark:text-yellow-400">${player.score || 0} pts</div>
-        ${player.solveTime ? `<div class="text-sm text-gray-500 dark:text-gray-400">${player.solveTime}s</div>` : ''}
       </div>
     `;
 
@@ -361,5 +385,17 @@ class LeaderboardManager {
 
     this.displayLeaderboard(players, yourRow);
     if (yourRow) this.updateUserRankBox({ rank: yourRow.rank, score: yourRow.totalScore }); else this.updateUserRankBox();
+  }
+
+  async onAuthReady() {
+    if (this.game._pendingLeaderboardLoad) {
+      this.game._pendingLeaderboardLoad = false;
+      try {
+        await this.loadLeaderboard();
+        await this.loadDailyLeaderboard();
+      } catch (e) {
+        console.debug('Retry load leaderboard after auth failed:', e);
+      }
+    }
   }
 }

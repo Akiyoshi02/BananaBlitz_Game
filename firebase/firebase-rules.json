@@ -1,0 +1,159 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "matchmakingQueue": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.hasChildren(['uid','username','ts']) && newData.child('uid').val() === $uid && newData.child('username').isString() && newData.child('ts').isNumber()"
+      }
+    },
+
+    "users": {
+      ".read": "auth != null",
+      ".indexOn": ["totalScore", "username", "bestStreak", "bananaClickCount", "email"],
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid",
+        "username": { ".validate": "newData.isString() && newData.val().length <= 32" },
+        "email": { ".validate": "!newData.exists() || newData.isString()" },
+        "createdAt": { ".validate": "newData.isNumber()" },
+        "lastLogin": { ".validate": "newData.isNumber()" },
+        "totalScore": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000000" },
+        "bestStreak": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000" },
+        "gamesPlayed": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000000" },
+        "gamesWon": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000000" },
+        "multiplayerGames": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000000" },
+        "multiplayerWins": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000000" },
+        "accuracy": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100" },
+        "dailyStreak": { ".validate": "!newData.exists() || (newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000)" },
+        "lastDaily": { ".validate": "!newData.exists() || newData.isNumber()" },
+        "avatar": { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 512)" },
+        "bananaClickCount": { ".validate": "!newData.exists() || (newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000000)" },
+        "bananaClickLast": { ".validate": "!newData.exists() || newData.isNumber()" },
+        "highestLevel": { ".validate": "!newData.exists() || (newData.isNumber() && newData.val() >= 1 && newData.val() <= 10000)" },
+        "highestTier": { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 32)" }
+      }
+    },
+
+    "usernames": {
+      ".read": "auth != null",
+      "$key": {
+        ".write": "auth != null && ((!data.exists() && newData.exists() && newData.child('uid').val() === auth.uid) || (!newData.exists() && data.child('uid').val() === auth.uid) || (data.exists() && newData.exists() && data.child('uid').val() === auth.uid))",
+        ".validate": "!newData.exists() || (newData.hasChildren(['uid','email']) && newData.child('uid').isString() && newData.child('email').isString() && newData.child('uid').val() === auth.uid)"
+      }
+    },
+
+    "gameSessions": {
+      ".read": "auth != null",
+      ".indexOn": ["timestamp", "userId"],
+      "$sessionId": {
+        ".write": "auth != null && ((!data.exists() && newData.exists() && newData.child('userId').val() === auth.uid) || (data.exists() && data.child('userId').val() === auth.uid))",
+        ".validate": "newData.hasChildren(['userId','points','streak','timestamp','mode']) && newData.child('userId').isString() && newData.child('points').isNumber() && newData.child('points').val() >= 0 && newData.child('points').val() <= 1000 && (!newData.child('solveTime').exists() || (newData.child('solveTime').isNumber() && newData.child('solveTime').val() >= 0 && newData.child('solveTime').val() <= 600)) && newData.child('streak').isNumber() && newData.child('streak').val() >= 0 && newData.child('streak').val() <= 999 && newData.child('timestamp').isNumber() && newData.child('mode').isString()"
+      }
+    },
+
+    "multiplayerRooms": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["gameStarted"],
+      "$roomId": {
+        "players": {
+          "$playerId": {
+            ".write": "auth != null && auth.uid === $playerId",
+            ".validate": "(!newData.child('username').exists() || newData.child('username').isString()) && (!newData.child('ready').exists() || newData.child('ready').isBoolean()) && (!newData.child('score').exists() || (newData.child('score').isNumber() && newData.child('score').val() >= 0 && newData.child('score').val() <= 1000)) && (!newData.child('currentGuess').exists() || newData.child('currentGuess').isNumber()) && (!newData.child('solved').exists() || newData.child('solved').isBoolean())"
+          }
+        },
+        "host": { ".write": "auth != null && auth.uid === data.parent().child('host').val()" },
+        "hostName": { ".write": "auth != null && auth.uid === data.parent().child('host').val()" },
+        "code": { ".write": "auth != null && auth.uid === data.parent().child('host').val()" },
+        "createdAt": { ".write": "auth != null && auth.uid === data.parent().child('host').val()" },
+        "gameStarted": { ".write": "auth != null && auth.uid === data.parent().child('host').val()", ".validate": "!newData.exists() || newData.isBoolean()" },
+        "gameCompleted": { ".write": "auth != null && auth.uid === data.parent().child('host').val()", ".validate": "!newData.exists() || newData.isBoolean()" },
+        "winner": { ".write": "auth != null && auth.uid === data.parent().child('host').val()", ".validate": "!newData.exists() || newData.isString()" },
+        "finalScores": { ".write": "auth != null && auth.uid === data.parent().child('host').val()" },
+        "currentRound": { ".write": "auth != null && auth.uid === data.parent().child('host').val()", ".validate": "!newData.exists() || (newData.isNumber() && newData.val() >= 0 && newData.val() <= 100)" },
+        "totalRounds": { ".write": "auth != null && auth.uid === data.parent().child('host').val()", ".validate": "!newData.exists() || (newData.isNumber() && newData.val() >= 1 && newData.val() <= 10)" },
+        "currentPuzzle": { ".write": "auth != null && auth.uid === data.parent().child('host').val()" },
+        "roundStartTime": { ".write": "auth != null && auth.uid === data.parent().child('host').val()", ".validate": "!newData.exists() || newData.isNumber()" },
+        "roundAdvanceToken": { ".write": "auth != null && auth.uid === data.parent().child('host').val()", ".validate": "!newData.exists() || newData.isString()" },
+        "rematchToken": { ".write": "auth != null", ".validate": "!newData.exists() || newData.isString()" },
+        "chat": {
+          ".indexOn": ["ts"],
+          "$msgId": {
+            ".read": "auth != null && root.child('multiplayerRooms').child($roomId).child('players').child(auth.uid).exists()",
+            ".write": "auth != null && root.child('multiplayerRooms').child($roomId).child('players').child(auth.uid).exists()",
+            ".validate": "newData.hasChildren(['uid','username','text','ts']) && newData.child('uid').isString() && newData.child('username').isString() && newData.child('text').isString() && newData.child('text').val().length > 0 && newData.child('text').val().length <= 300 && newData.child('ts').isNumber()"
+          }
+        }
+      }
+    },
+
+    "multiplayerGames": {
+      ".read": true,
+      "$gameId": {
+        ".write": false,
+        ".validate": "newData.hasChildren(['roomCode','players','winner','timestamp','rounds']) && newData.child('roomCode').isString() && newData.child('players').hasChildren() && newData.child('winner').isString() && newData.child('timestamp').isNumber() && newData.child('rounds').isNumber() && newData.child('rounds').val() >= 1 && newData.child('rounds').val() <= 10"
+      }
+    },
+
+    "userAchievements": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$code": {
+          ".write": "auth != null && auth.uid === $uid && (!data.exists() || newData.val() === data.val())",
+          ".validate": "newData.val() === true"
+        }
+      }
+    },
+
+    "friends": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        "friends": {
+          "$friendId": {
+            ".write": "auth != null && (auth.uid === $uid || auth.uid === $friendId) && $friendId != $uid",
+            ".validate": "newData.isBoolean() && (newData.val() === true || !newData.exists())"
+          }
+        },
+        "friendInvites": {
+          ".indexOn": ["timestamp"],
+          "$inviterId": {
+            ".write": "auth != null && (auth.uid === $inviterId || auth.uid === $uid)",
+            ".validate": "!newData.exists() || (newData.hasChildren(['username','timestamp']) && newData.child('username').isString() && newData.child('username').val().matches(/^[ -~]{1,50}$/) && newData.child('timestamp').isNumber() && newData.child('timestamp').val() <= now + 300000)"
+          }
+        }
+      }
+    },
+
+    "dailyPuzzles": {
+      ".read": true,
+      "$dateKey": {
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+        ".validate": "newData.hasChildren(['question','solution']) && newData.child('question').isString() && newData.child('solution').isNumber()"
+      }
+    },
+
+    "userDaily": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$dateKey": {
+          ".write": "auth != null && auth.uid === $uid && !data.exists()",
+          ".validate": "newData.hasChildren(['used','solved','triedAt']) && newData.child('used').isBoolean() && newData.child('solved').isBoolean() && newData.child('triedAt').isNumber()"
+        }
+      }
+    },
+
+    "admins": {
+      "$uid": {
+        ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+        ".validate": "newData.isBoolean() && newData.val() === true"
+      }
+    }
+  }
+}
