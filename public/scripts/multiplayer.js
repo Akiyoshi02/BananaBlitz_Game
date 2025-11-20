@@ -1,4 +1,9 @@
 class MultiplayerManager {
+    matchmakingQueueRef = null;
+    matchmakingDisconnectRef = null;
+
+    static GIPHY_API_KEY = 'Xfe5LwxHwFbmfi7IAVXBMfwaI1NE48uu';
+
     constructor(game) {
         this.game = game;
         this.db = game.db;
@@ -145,6 +150,85 @@ class MultiplayerManager {
         }
     }
 
+    async playOnline() {
+        const user = this.auth.currentUser;
+        if (!user) {
+            this.game.showToast('Please log in first', 'error');
+            return;
+        }
+
+        this.game.showSection('multiplayerSection');
+        const statusEl = document.getElementById('multiplayerStatus');
+        if (statusEl) statusEl.textContent = 'Waiting for an opponent...';
+
+        const queueRef = this.db.ref('matchmakingQueue');
+        const myQueueRef = queueRef.child(user.uid);
+        const matchmakingRoomsRef = this.db.ref('matchmakingRooms');
+
+        const queueSnap = await queueRef.once('value');
+        const queue = queueSnap.val() || {};
+        const others = Object.keys(queue).filter(uid => uid !== user.uid);
+
+        if (others.length > 0) {
+            const hostUid = others[0];
+            const hostEntry = queue[hostUid];
+            const roomCode = hostEntry.roomCode;
+            if (!roomCode) {
+                this.game.showToast('Error: Host has no room code.', 'error');
+                return;
+            }
+            await myQueueRef.remove();
+            const roomRef = this.db.ref('multiplayerRooms/' + roomCode);
+            await roomRef.child('players/' + user.uid).set({
+                username: this.game.usernameGlobal,
+                ready: false,
+                score: 0,
+                currentGuess: null,
+                solved: false
+            });
+            this.currentRoom = roomCode;
+            this.setupRoomListeners(roomCode);
+            if (statusEl) statusEl.textContent = 'Player has joined!';
+            this.game.showToast(`Match found! Room ${roomCode}`, 'success');
+        } else {
+            const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+            const roomData = {
+                code: roomCode,
+                host: user.uid,
+                hostName: this.game.usernameGlobal,
+                players: {
+                    [user.uid]: {
+                        username: this.game.usernameGlobal,
+                        ready: false,
+                        score: 0,
+                        currentGuess: null,
+                        solved: false
+                    }
+                },
+                gameStarted: false,
+                currentRound: 0,
+                totalRounds: 3,
+                currentPuzzle: null,
+                createdAt: Date.now()
+            };
+            await this.db.ref('multiplayerRooms/' + roomCode).set(roomData);
+            const userData = {
+                uid: user.uid,
+                username: this.game.usernameGlobal,
+                ts: Date.now(),
+                roomCode: roomCode
+            };
+            await myQueueRef.set(userData);
+            if (typeof firebase !== 'undefined' && firebase.database && firebase.database.ServerValue) {
+                myQueueRef.onDisconnect().remove();
+            }
+            this.matchmakingQueueRef = myQueueRef;
+            this.currentRoom = roomCode;
+            this.setupRoomListeners(roomCode);
+            if (statusEl) statusEl.textContent = 'Waiting for an opponent...';
+        }
+    }
+
     setupRoomListeners(roomCode) {
         this.cleanupRoomListeners();
 
@@ -192,6 +276,47 @@ class MultiplayerManager {
 
         const playersObj = roomData.players || {};
         const playersArr = Object.values(playersObj);
+
+        if (!this._prevPlayerIds) this._prevPlayerIds = Object.keys(playersObj);
+        const prevPlayerIds = this._prevPlayerIds;
+        const currentPlayerIds = Object.keys(playersObj);
+        if (prevPlayerIds.length > currentPlayerIds.length) {
+            const leftUid = prevPlayerIds.find(uid => !currentPlayerIds.includes(uid));
+            const me = this.auth.currentUser;
+            if (leftUid && me && leftUid === me.uid) {
+                this._prevPlayerIds = currentPlayerIds;
+                this._prevPlayersObj = playersObj;
+                return;
+            }
+
+            let leftName = 'Player';
+            if (leftUid && this._prevPlayersObj && this._prevPlayersObj[leftUid] && this._prevPlayersObj[leftUid].username) {
+                leftName = this._prevPlayersObj[leftUid].username;
+            }
+            this.game.showToast(`${leftName} left the room`, 'warning');
+
+            const hostUid = roomData.host;
+            const hostStillPresent = currentPlayerIds.includes(hostUid);
+            if (roomData.gameStarted && currentPlayerIds.length === 1 && prevPlayerIds.length >= 2) {
+                setTimeout(() => {
+                    this.game.showToast('Other player left. Returning to game.', 'info');
+                    this.leaveRoom();
+                }, 1000);
+                this._prevPlayerIds = currentPlayerIds;
+                return;
+            }
+            if (!roomData.gameStarted && !hostStillPresent && me && me.uid !== hostUid) {
+                setTimeout(() => {
+                    this.game.showToast('Host left. Returning to menu.', 'info');
+                    this.leaveRoom();
+                }, 1000);
+                this._prevPlayerIds = currentPlayerIds;
+                return;
+            }
+        }
+        this._prevPlayerIds = currentPlayerIds;
+        this._prevPlayersObj = playersObj;
+
         this.roomPlayers = playersArr;
 
         const playersContainer = document.getElementById('multiplayerPlayers');
@@ -271,8 +396,18 @@ class MultiplayerManager {
                 roundInfoEl.textContent = `Round ${this.currentRound + 1} of ${roomData.totalRounds || 3}`;
             }
 
+            const img = document.getElementById('multiplayerImage');
+            const loadingOverlay = document.getElementById('multiplayerLoadingOverlay');
+            
             if (roomData.currentPuzzle) {
                 this.displayCurrentPuzzle(roomData.currentPuzzle);
+            } else {
+                // Reset to placeholder when no puzzle
+                if (img) {
+                    img.src = 'assets/images/monkey.png';
+                    img.alt = 'Multiplayer Puzzle';
+                }
+                if (loadingOverlay) loadingOverlay.classList.add('hidden');
             }
             this.updateGameUI(roomData);
 
@@ -405,11 +540,17 @@ class MultiplayerManager {
             }
 
             const playersArr = Object.values(roomData.players || {});
+
+            if (playersArr.length < 2) {
+                this.game.showToast('Need at least 2 players to start', 'error');
+                return;
+            }
+
             const readyCount = playersArr.filter(p => p.ready === true).length;
-            const allReady = playersArr.length >= 2 && readyCount === playersArr.length;
+            const allReady = readyCount === playersArr.length;
 
             if (!allReady) {
-                this.game.showToast('All players must be ready (min 2 players)', 'error');
+                this.game.showToast('All players must be ready', 'error');
                 return;
             }
 
@@ -419,8 +560,7 @@ class MultiplayerManager {
                 gameStarted: true,
                 currentRound: 0,
                 currentPuzzle: puzzleData,
-                roundStartTime: firebase.database.ServerValue.TIMESTAMP,
-                roundAdvanceToken: null
+                roundStartTime: firebase.database.ServerValue.TIMESTAMP
             });
 
             this.hideResultsPanel?.();
@@ -645,10 +785,25 @@ class MultiplayerManager {
 
     displayCurrentPuzzle(puzzleData) {
         const img = document.getElementById('multiplayerImage');
-        if (img && puzzleData.imageUrl) {
+        const loadingOverlay = document.getElementById('multiplayerLoadingOverlay');
+        
+        if (!img || !puzzleData.imageUrl) return;
+
+        // Show loading overlay
+        if (loadingOverlay) loadingOverlay.classList.remove('hidden');
+
+        // Preload image
+        const preImg = new window.Image();
+        preImg.onload = () => {
             img.src = puzzleData.imageUrl;
             img.alt = 'Multiplayer banana puzzle';
-        }
+            if (loadingOverlay) loadingOverlay.classList.add('hidden');
+        };
+        preImg.onerror = () => {
+            if (loadingOverlay) loadingOverlay.classList.add('hidden');
+            this.game.showToast('⚠️ Puzzle image failed to load', 'warning');
+        };
+        preImg.src = puzzleData.imageUrl;
     }
 
     handleRoomDeleted() {
@@ -658,6 +813,15 @@ class MultiplayerManager {
 
     async leaveRoom() {
         const user = this.auth.currentUser;
+
+        if (this.matchmakingQueueRef) {
+            try { await this.matchmakingQueueRef.remove(); } catch { }
+            this.matchmakingQueueRef = null;
+        }
+        if (this.queueListener && this.db && this.db.ref) {
+            try { this.db.ref('matchmakingQueue').off('value', this.queueListener); } catch { }
+            this.queueListener = null;
+        }
 
         if (this.currentRoom && user) {
             try {
@@ -685,21 +849,54 @@ class MultiplayerManager {
         this.game.showSection('multiplayerLobbySection');
         this.game.showToast('Left the room', 'info');
 
+        const statusEl = document.getElementById('multiplayerStatus');
+        if (statusEl) statusEl.textContent = 'Create or join a room to start playing!';
+
+        // Clear both chat sections
         const list = document.getElementById('mpChatList');
         if (list) list.innerHTML = '';
+        const listLobby = document.getElementById('mpChatListLobby');
+        if (listLobby) listLobby.innerHTML = '';
         const inp = document.getElementById('mpChatInput');
         if (inp) inp.value = '';
+        const inpLobby = document.getElementById('mpChatInputLobby');
+        if (inpLobby) inpLobby.innerHTML = '';
 
     }
 
     initChat(roomCode) {
+        // Clean up any existing chat listeners first
+        this.cleanupRoomListeners();
+        this.chatListeners = [];
+
+        // Initialize both chat sections (game and lobby)
         const listEl = document.getElementById('mpChatList');
+        const listElLobby = document.getElementById('mpChatListLobby');
         const inputEl = document.getElementById('mpChatInput');
+        const inputElLobby = document.getElementById('mpChatInputLobby');
         const sendBtn = document.getElementById('mpChatSendBtn');
+        const sendBtnLobby = document.getElementById('mpChatSendBtnLobby');
+        const emojiBtn = document.getElementById('mpEmojiBtn');
+        const emojiBtnLobby = document.getElementById('mpEmojiBtnLobby');
+        const emojiPicker = document.getElementById('mpEmojiPicker');
+        const emojiPickerLobby = document.getElementById('mpEmojiPickerLobby');
 
-        if (!listEl || !inputEl || !sendBtn) return;
+        const gifBtn = document.getElementById('mpGifBtn');
+        const gifBtnLobby = document.getElementById('mpGifBtnLobby');
+        const gifPicker = document.getElementById('mpGifPicker');
+        const gifPickerLobby = document.getElementById('mpGifPickerLobby');
+        const gifSearchInput = document.getElementById('mpGifSearchInput');
+        const gifSearchInputLobby = document.getElementById('mpGifSearchInputLobby');
+        const gifSearchBtn = document.getElementById('mpGifSearchBtn');
+        const gifSearchBtnLobby = document.getElementById('mpGifSearchBtnLobby');
+        const gifResults = document.getElementById('mpGifResults');
+        const gifResultsLobby = document.getElementById('mpGifResultsLobby');
 
-        listEl.innerHTML = '';
+        // At least one chat section must exist
+        if ((!listEl && !listElLobby) || (!inputEl && !inputElLobby) || (!sendBtn && !sendBtnLobby)) return;
+
+        if (listEl) listEl.innerHTML = '';
+        if (listElLobby) listElLobby.innerHTML = '';
 
         this.chatRef = this.db.ref(`multiplayerRooms/${roomCode}/chat`).orderByChild('ts').limitToLast(50);
 
@@ -711,31 +908,185 @@ class MultiplayerManager {
 
         this.chatListeners.push(() => this.chatRef && this.chatRef.off('child_added', onAdd));
 
-        sendBtn.onclick = () => this.sendChat(inputEl);
+        // Set up send buttons and input handlers for both chat sections
+        if (sendBtn && inputEl) {
+            sendBtn.onclick = () => this.sendChat(inputEl);
+            inputEl.onkeydown = (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    this.sendChat(inputEl);
+                }
+            };
+        }
 
-        inputEl.onkeydown = (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                this.sendChat(inputEl);
+        if (sendBtnLobby && inputElLobby) {
+            sendBtnLobby.onclick = () => this.sendChat(inputElLobby);
+            inputElLobby.onkeydown = (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    this.sendChat(inputElLobby);
+                }
+            };
+        }
+
+        // Helper function to initialize emoji/GIF pickers for a chat section
+        const initChatPickers = (input, emojiBtn, emojiPicker, gifBtn, gifPicker, gifSearchInput, gifSearchBtn, gifResults) => {
+            if (!emojiBtn || !emojiPicker || !input) return;
+
+            emojiBtn.onclick = (ev) => {
+                ev.stopPropagation();
+                emojiPicker.classList.toggle('hidden');
+            };
+
+            if (gifBtn && gifPicker && gifSearchInput && gifSearchBtn && gifResults) {
+                const loadRecommendedGifs = async () => {
+                    gifResults.innerHTML = '<div class="col-span-3 text-center text-gray-400">Loading...</div>';
+                    try {
+                        const res = await fetch(`https://api.giphy.com/v1/gifs/search?api_key=${MultiplayerManager.GIPHY_API_KEY}&q=funny&limit=12&rating=pg`);
+                        const data = await res.json();
+                        gifResults.innerHTML = '';
+                        if (data.data && data.data.length) {
+                            data.data.forEach(gif => {
+                                const img = document.createElement('img');
+                                img.src = gif.images.fixed_height_small.url;
+                                img.alt = gif.title;
+                                img.className = 'rounded cursor-pointer hover:scale-105 transition-transform';
+                                img.style.width = '100%';
+                                img.onclick = () => {
+                                    this.insertAtCursor(input, `[GIF]${gif.images.original.url}[/GIF]`);
+                                    gifPicker.classList.add('hidden');
+                                    input.focus();
+                                };
+                                gifResults.appendChild(img);
+                            });
+                        } else {
+                            gifResults.innerHTML = '<div class="col-span-3 text-center text-gray-400">No GIFs found.</div>';
+                        }
+                    } catch {
+                        gifResults.innerHTML = '<div class="col-span-3 text-center text-red-400">Error loading GIFs.</div>';
+                    }
+                };
+
+                gifBtn.onclick = (ev) => {
+                    ev.stopPropagation();
+                    gifPicker.classList.toggle('hidden');
+                    if (!gifPicker.classList.contains('hidden')) {
+                        gifSearchInput.value = '';
+                        gifSearchInput.focus();
+                        loadRecommendedGifs();
+                    }
+                };
+
+                gifSearchBtn.onclick = async () => {
+                    const q = gifSearchInput.value.trim();
+                    if (!q) return;
+                    gifResults.innerHTML = '<div class="col-span-3 text-center text-gray-400">Searching...</div>';
+                    try {
+                        const res = await fetch(`https://api.giphy.com/v1/gifs/search?api_key=${MultiplayerManager.GIPHY_API_KEY}&q=${encodeURIComponent(q)}&limit=12&rating=pg`);
+                        const data = await res.json();
+                        gifResults.innerHTML = '';
+                        if (data.data && data.data.length) {
+                            data.data.forEach(gif => {
+                                const img = document.createElement('img');
+                                img.src = gif.images.fixed_height_small.url;
+                                img.alt = gif.title;
+                                img.className = 'rounded cursor-pointer hover:scale-105 transition-transform';
+                                img.style.width = '100%';
+                                img.onclick = () => {
+                                    this.insertAtCursor(input, `[GIF]${gif.images.original.url}[/GIF]`);
+                                    gifPicker.classList.add('hidden');
+                                    input.focus();
+                                };
+                                gifResults.appendChild(img);
+                            });
+                        } else {
+                            gifResults.innerHTML = '<div class="col-span-3 text-center text-gray-400">No GIFs found.</div>';
+                        }
+                    } catch {
+                        gifResults.innerHTML = '<div class="col-span-3 text-center text-red-400">Error loading GIFs.</div>';
+                    }
+                };
+
+                gifSearchInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') gifSearchBtn.click();
+                });
+
+                const gifOutsideHandler = (ev) => {
+                    if (!gifPicker.contains(ev.target) && ev.target !== gifBtn) {
+                        gifPicker.classList.add('hidden');
+                    }
+                };
+                document.addEventListener('click', gifOutsideHandler);
+                this.chatListeners.push(() => document.removeEventListener('click', gifOutsideHandler));
             }
+
+            const emojiClickHandler = (ev) => {
+                const btn = ev.target.closest && ev.target.closest('.mp-emoji');
+                if (!btn) return;
+                // Only handle if the button is within this specific picker
+                if (!emojiPicker.contains(btn)) return;
+                ev.preventDefault();
+                ev.stopPropagation();
+                const emoji = btn.dataset && btn.dataset.emoji ? btn.dataset.emoji : btn.textContent || '';
+                if (emoji) {
+                    this.insertAtCursor(input, emoji);
+                    input.focus();
+                }
+                emojiPicker.classList.add('hidden');
+            };
+            emojiPicker.addEventListener('click', emojiClickHandler);
+            this.chatListeners.push(() => emojiPicker.removeEventListener('click', emojiClickHandler));
+
+            const outsideHandler = (ev) => {
+                if (!emojiPicker.contains(ev.target) && ev.target !== emojiBtn) {
+                    emojiPicker.classList.add('hidden');
+                }
+            };
+            document.addEventListener('click', outsideHandler);
+            this.chatListeners.push(() => document.removeEventListener('click', outsideHandler));
         };
+
+        // Initialize pickers for game chat section
+        initChatPickers(inputEl, emojiBtn, emojiPicker, gifBtn, gifPicker, gifSearchInput, gifSearchBtn, gifResults);
+
+        // Initialize pickers for lobby chat section
+        initChatPickers(inputElLobby, emojiBtnLobby, emojiPickerLobby, gifBtnLobby, gifPickerLobby, gifSearchInputLobby, gifSearchBtnLobby, gifResultsLobby);
     }
 
     sendChat(inputEl) {
         const user = this.auth.currentUser;
         if (!user || !this.currentRoom || !this.chatRef) return;
 
-        const raw = (inputEl.value || '').trim();
-        if (!raw) return;
 
-        const text = raw.replace(/\s+/g, ' ').slice(0, 300);
+        let html = '';
+        if (inputEl.isContentEditable) {
+            html = inputEl.innerHTML.trim();
+        } else {
+            html = (inputEl.value || '').replace(/\s+/g, ' ').slice(0, 300).trim();
+        }
+        if (!html || !html.replace(/<[^>]*>/g, '').trim() && !/<img/i.test(html)) return;
 
         const username = this.game.usernameGlobal || user.displayName || (user.email || 'User').split('@')[0];
 
         const roomChatRoot = this.db.ref(`multiplayerRooms/${this.currentRoom}/chat`);
+
+        let text = '';
+        try {
+            if (inputEl.isContentEditable) {
+                text = (inputEl.textContent || '').trim().slice(0, 300);
+                if (!text && /<img/i.test(html)) text = '[image]';
+            } else {
+                text = (inputEl.value || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').slice(0, 300).trim();
+                if (!text && /\[GIF\].+\[\/GIF\]/i.test(html)) text = '[GIF]';
+            }
+        } catch (e) {
+            text = '';
+        }
+
         roomChatRoot.push({
             uid: user.uid,
             username,
+            html,
             text,
             ts: Date.now()
         }).catch(err => {
@@ -743,12 +1094,20 @@ class MultiplayerManager {
             this.game.showToast('Message failed to send', 'error');
         });
 
-        inputEl.value = '';
+        if (inputEl.isContentEditable) {
+            inputEl.innerHTML = '';
+        } else {
+            inputEl.value = '';
+        }
     }
 
     renderChatMessage(msg) {
         const listEl = document.getElementById('mpChatList');
-        if (!listEl) return;
+        const listElLobby = document.getElementById('mpChatListLobby');
+        
+        // Render to both chat lists if they exist
+        const lists = [listEl, listElLobby].filter(el => el !== null);
+        if (lists.length === 0) return;
 
         const isMe = this.auth.currentUser && msg.uid === this.auth.currentUser.uid;
 
@@ -768,7 +1127,29 @@ class MultiplayerManager {
         name.textContent = isMe ? 'You' : msg.username;
 
         const text = document.createElement('div');
-        text.textContent = msg.text;
+        if (msg.html) {
+            const temp = document.createElement('div');
+            let safe = msg.html
+                .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+                .replace(/<([a-z][a-z0-9]*)\b[^>]*>/gi, (tag, tagName) => {
+                    if (tagName === 'img') return tag;
+                    return '';
+                });
+            temp.innerHTML = safe;
+            const imgs = Array.from(temp.querySelectorAll('img'));
+            imgs.forEach(img => {
+                text.appendChild(img.cloneNode(true));
+            });
+            const textContent = temp.textContent.trim();
+            if (textContent) {
+                const textDiv = document.createElement('div');
+                textDiv.textContent = textContent;
+                textDiv.style.marginTop = imgs.length ? '0.5em' : '';
+                text.appendChild(textDiv);
+            }
+        } else if (msg.text) {
+            text.textContent = msg.text;
+        }
 
         const time = document.createElement('div');
         time.className = 'mt-0.5 text-[10px] opacity-60';
@@ -778,9 +1159,13 @@ class MultiplayerManager {
         bubble.appendChild(text);
         bubble.appendChild(time);
         row.appendChild(bubble);
-        listEl.appendChild(row);
 
-        listEl.scrollTop = listEl.scrollHeight;
+        // Append to all chat lists
+        lists.forEach(list => {
+            const rowClone = row.cloneNode(true);
+            list.appendChild(rowClone);
+            list.scrollTop = list.scrollHeight;
+        });
 
         if (!isMe) {
             try { this.game.playSound?.('click'); } catch { }
@@ -795,6 +1180,50 @@ class MultiplayerManager {
             return `${hh}:${mm}`;
         } catch {
             return '';
+        }
+    }
+
+    insertAtCursor(inputEl, text) {
+        if (inputEl.isContentEditable) {
+            inputEl.focus();
+            const sel = window.getSelection();
+            if (!sel || !sel.getRangeAt || sel.rangeCount === 0) {
+                inputEl.innerHTML += text;
+                return;
+            }
+            const range = sel.getRangeAt(0);
+            const gifMatch = text.match(/^\[GIF\](.+)\[\/GIF\]$/);
+            if (gifMatch) {
+                const img = document.createElement('img');
+                img.src = gifMatch[1];
+                img.alt = 'GIF';
+                img.className = 'rounded max-h-40 inline';
+                range.deleteContents();
+                range.insertNode(img);
+                range.setStartAfter(img);
+                range.setEndAfter(img);
+                sel.removeAllRanges();
+                sel.addRange(range);
+            } else {
+                range.deleteContents();
+                range.insertNode(document.createTextNode(text));
+                range.collapse(false);
+                sel.removeAllRanges();
+                sel.addRange(range);
+            }
+        } else {
+            try {
+                const start = typeof inputEl.selectionStart === 'number' ? inputEl.selectionStart : inputEl.value.length;
+                const end = typeof inputEl.selectionEnd === 'number' ? inputEl.selectionEnd : inputEl.value.length;
+                const val = inputEl.value || '';
+                inputEl.value = val.slice(0, start) + text + val.slice(end);
+                const pos = start + text.length;
+                inputEl.setSelectionRange(pos, pos);
+            } catch (e) {
+                try {
+                    inputEl.value = (inputEl.value || '') + text;
+                } catch { }
+            }
         }
     }
 
@@ -833,27 +1262,25 @@ class MultiplayerManager {
 
     updateGameUI(roomData) {
         const user = this.auth.currentUser;
-
         if (!user) return;
+        if (!roomData.players || !roomData.players[user.uid]) return;
 
         const currentPlayer = roomData.players[user.uid];
-
         if (currentPlayer) {
-            document.getElementById('multiplayerPlayerScore').textContent = currentPlayer.score || 0;
-            document.getElementById('multiplayerPlayerStatus').textContent =
-                currentPlayer.solved ? '✅ Solved!' : '⏳ Thinking...';
-
-            document.getElementById('multiplayerRoundInfo').textContent =
-                `Round ${(roomData.currentRound || 0) + 1} of ${roomData.totalRounds || 3}`;
+            const scoreEl = document.getElementById('multiplayerPlayerScore');
+            if (scoreEl) scoreEl.textContent = currentPlayer.score || 0;
+            const statusEl = document.getElementById('multiplayerPlayerStatus');
+            if (statusEl) statusEl.textContent = currentPlayer.solved ? '✅ Solved!' : '⏳ Thinking...';
+            const roundInfoEl = document.getElementById('multiplayerRoundInfo');
+            if (roundInfoEl) roundInfoEl.textContent = `Round ${(roomData.currentRound || 0) + 1} of ${roomData.totalRounds || 3}`;
         }
-
         this.updateLiveScores(roomData);
     }
 
     startRoundTimer() {
         if (this.timerInterval) return;
         const total = 60;
-        this.timerInterval = setInterval(() => {
+        this.timerInterval = setInterval(async () => {
             const start = this.roundStartTime || Date.now();
             const elapsed = (Date.now() - start) / 1000;
             const remaining = Math.max(0, total - elapsed);
@@ -869,6 +1296,15 @@ class MultiplayerManager {
             }
             if (remaining <= 0) {
                 this.clearRoundTimer();
+                const user = this.auth.currentUser;
+                if (this.gameStarted && user && this.currentRoom) {
+                    const roomRef = this.db.ref('multiplayerRooms/' + this.currentRoom);
+                    const snapshot = await roomRef.once('value');
+                    const roomData = snapshot.val();
+                    if (roomData && roomData.host === user.uid && !roomData.gameCompleted) {
+                        await this.nextRound(roomData);
+                    }
+                }
             }
         }, 1000);
     }
