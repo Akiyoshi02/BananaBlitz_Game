@@ -42,6 +42,58 @@ Players guess the number of bananas in each puzzle. Classic mode (lives + levels
 - `userAchievements/{uid}/{code}` — achievement flags (write-once)
 
 ---
+
+## 📸 Screenshots  
+
+### 🔐 Login  
+![Login UI](https://github.com/user-attachments/assets/d496a281-1b30-4c97-b8af-c6a3b53e33e3)
+
+![Account Recovery UI](https://github.com/user-attachments/assets/6599306b-40dc-4ed3-b17f-dc0991d1946b)
+
+### 📝 Registration  
+![Registration UI](https://github.com/user-attachments/assets/20bbf04f-2bcc-448a-9f95-099d7a797f44)
+
+### 🏠 Main Menu  
+![Main Menu UI](https://github.com/user-attachments/assets/99610b12-e69a-47fa-a512-2027bd336ec9)
+
+### 🎮 Classic Mode  
+![Classic Mode UI](https://github.com/user-attachments/assets/43c345c5-9725-4f64-96c2-f88a3c7c85b3)
+
+![Celebration  UI](https://github.com/user-attachments/assets/d672e8a3-6c4a-4fb7-a1d5-e5bef28f3acb)
+
+### 👥 Multiplayer Mode  
+![Multiplayer Mode UI](https://github.com/user-attachments/assets/29bb66e3-650a-4b10-aa94-474672da30b2)
+
+![Waiting Room UI](https://github.com/user-attachments/assets/1d26d710-caf8-4862-944c-d76ef1823017)
+
+![Chat Room UI](https://github.com/user-attachments/assets/3ebe0f61-c958-4aa1-8fc2-b019bf774afe)
+
+### 📆 Daily Challenge Mode  
+![Daily Challenge UI](https://github.com/user-attachments/assets/f99f2a4a-841b-4d31-a04a-22037937ed89)
+
+### 👤 User Profile UI  
+![User Profile UI](https://github.com/user-attachments/assets/aa0a77e5-8be9-493b-896b-8550d0c575a5)
+
+### 🏆 Leaderboard UI  
+![Leaderboard UI](https://github.com/user-attachments/assets/23273a24-a662-49dd-bce4-909c6c7db86d)
+
+### ⚙️ Settings UI
+![Settings UI](https://github.com/user-attachments/assets/7a733cf7-4dba-4d79-bac5-2eb1b9c4731d)
+
+![Default Theme UI](https://github.com/user-attachments/assets/4bbafbab-15ba-496e-a75e-b3aecf595744)
+
+![Default Theme UI](https://github.com/user-attachments/assets/66f7d501-c73b-4b0f-b4d8-80698284ac93)
+
+![Neon Night Theme UI](https://github.com/user-attachments/assets/75f55380-74df-41fb-968b-e60689864ab2)
+
+![Monochromatic Theme UI](https://github.com/user-attachments/assets/3e6ae96c-2af7-44ab-af81-7cc2cea3d6d9)
+
+### 💤 Screensaver UI  
+![Screensaver UI](https://github.com/user-attachments/assets/5d57a8a2-c100-4b40-804e-4be420265c4f)
+
+_Based on the time of the day, the screensaver theme will change depending on it._
+
+---
 ## 🧭 Setup / Run (No Build Step)
 1. **Clone Repo**
    ```bash
