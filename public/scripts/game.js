@@ -53,7 +53,6 @@ class BananaBlitzGame {
         this._uploadedAvatarFile = null;
         Array.from(container.children).forEach(child => child.classList.remove('ring-4', 'ring-yellow-400'));
         img.classList.add('ring-4', 'ring-yellow-400');
-        // Update modal preview
         const modalPreview = document.getElementById('avatarModalPreview');
         const modalInitials = document.getElementById('avatarModalPreviewInitials');
         const modalLabel = document.getElementById('avatarModalPreviewLabel');
@@ -320,8 +319,7 @@ class BananaBlitzGame {
   }
 
   initScreensaver() {
-    // Screensaver configuration
-    const INACTIVITY_TIMEOUT = 6000; // 2 minutes in milliseconds
+    const INACTIVITY_TIMEOUT = 6000;
     const screensaver = document.getElementById('screensaver');
     const messageEl = document.getElementById('screensaverMessage');
     const bananaContainer = document.getElementById('screensaverBananas');
@@ -352,7 +350,6 @@ class BananaBlitzGame {
     };
     const SKY_THEME_CLASSES = ['sky-theme-morning', 'sky-theme-afternoon', 'sky-theme-evening', 'sky-theme-night'];
 
-    // Base funny messages that rotate
     const baseFunnyMessages = [
       "The monkey got tired of counting bananas... 🍌",
       "Taking a banana break! 🍌😴",
@@ -364,7 +361,6 @@ class BananaBlitzGame {
       "The banana counter needs a nap! 🐵💤"
     ];
 
-    // Fun facts about bananas
     const bananaFacts = [
       "Did you know? Bananas are berries! 🍌",
       "Banana fact: They float in water! 🍌💧",
@@ -375,11 +371,9 @@ class BananaBlitzGame {
       "Fun fact: Bananas grow on plants, not trees! 🍌🌱"
     ];
 
-    // Motivational messages based on achievements
     const getMotivationalMessages = () => {
       const messages = [];
-      
-      // Streak-based messages
+
       if (this.streak >= 10) {
         messages.push("🔥 You're on fire! Amazing streak! 🔥");
         messages.push("🔥 Unstoppable! Keep it going! 🔥");
@@ -389,15 +383,13 @@ class BananaBlitzGame {
       } else if (this.streak > 0) {
         messages.push("💪 Nice streak! Keep it up! 💪");
       }
-      
-      // Best streak messages
+
       if (this.bestStreak >= 20) {
         messages.push("🏆 Legendary player! Incredible best streak! 🏆");
       } else if (this.bestStreak >= 10) {
         messages.push("⭐ Impressive best streak! You're a pro! ⭐");
       }
-      
-      // Points-based messages
+
       if (this.sessionPoints >= 500) {
         messages.push("🎉 Incredible session! So many points! 🎉");
       } else if (this.sessionPoints >= 200) {
@@ -405,14 +397,13 @@ class BananaBlitzGame {
       } else if (this.sessionPoints > 0) {
         messages.push("🍌 Nice work! Every banana counts! 🍌");
       }
-      
-      // Level-based messages
+
       if (this.currentLevel >= 10) {
         messages.push("📈 High level player! You're a master! 📈");
       } else if (this.currentLevel >= 5) {
         messages.push("🚀 Leveling up! Great progress! 🚀");
       }
-      
+
       return messages;
     };
 
@@ -427,7 +418,7 @@ class BananaBlitzGame {
     const buildFunnyMessages = () => {
       const { greeting } = getTimeOfDayInfo();
       const motivational = getMotivationalMessages();
-      
+
       return [
         ...baseFunnyMessages,
         ...motivational,
@@ -449,21 +440,17 @@ class BananaBlitzGame {
       if (!skyContainer) return;
       const { period } = getTimeOfDayInfo();
       const theme = skyThemes[period] || skyThemes.night;
-      
-      // Remove all theme classes
+
       skyContainer.classList.remove(...SKY_THEME_CLASSES);
-      
-      // Apply time-based theme
+
       skyContainer.classList.add(`sky-theme-${period}`);
-      
-      // Apply skin-based styling
+
       const currentSkin = this.currentSkin || '';
       skyContainer.classList.remove('skin-jungle', 'skin-neon', 'skin-mono');
       if (currentSkin) {
         skyContainer.classList.add(currentSkin);
       }
 
-      // Separate unique elements (single instances) from repeating elements
       const uniqueElements = ['sky-glow', 'sky-moon-ring', 'sky-sun-rays'];
       const repeatingElements = theme.elements.filter(cls => {
         const isUnique = uniqueElements.some(unique => cls.includes(unique));
@@ -474,19 +461,19 @@ class BananaBlitzGame {
       const uniqueElementClasses = theme.elements.filter(cls => uniqueElements.some(unique => cls.includes(unique)));
       const sparkleElements = theme.elements.filter(cls => cls.includes('sparkle'));
       const shootingStarElements = theme.elements.filter(cls => cls.includes('shooting-star'));
-      
+
       const decorativeElements = repeatingElements
         .map(cls => `<span class="sky-element ${cls}"></span>`)
         .join('');
-      
+
       const sparklesHTML = sparkleElements
         .map(cls => `<span class="sky-sparkle ${cls}"></span>`)
         .join('');
-      
+
       const shootingStarsHTML = shootingStarElements
         .map(cls => `<span class="sky-shooting-star ${cls}"></span>`)
         .join('');
-      
+
       const uniqueElementsHTML = uniqueElementClasses
         .map(cls => {
           if (cls === 'sky-glow') {
@@ -519,16 +506,15 @@ class BananaBlitzGame {
       applySkyTheme();
     };
 
-    // Create floating banana with enhanced animations
     const createFloatingBanana = () => {
       if (!bananaContainer || !isScreensaverActive) return;
-      
+
       const banana = document.createElement('img');
       banana.src = 'assets/images/banana.png';
       banana.alt = 'banana';
       banana.className = 'absolute pointer-events-none';
-      
-      const size = Math.random() * 30 + 20; // 20-50px
+
+      const size = Math.random() * 30 + 20;
       banana.style.width = size + 'px';
       banana.style.height = 'auto';
       banana.style.left = Math.random() * 100 + '%';
@@ -536,25 +522,22 @@ class BananaBlitzGame {
       banana.style.opacity = Math.random() * 0.5 + 0.3;
       banana.style.transform = `rotate(${Math.random() * 360}deg)`;
       banana.style.filter = `drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2))`;
-      
-      // Random animation duration with more variety
-      const duration = Math.random() * 4 + 5; // 5-9 seconds
-      const rotationSpeed = Math.random() * 720 + 360; // 360-1080 degrees
+
+      const duration = Math.random() * 4 + 5;
+      const rotationSpeed = Math.random() * 720 + 360;
       banana.style.transition = `transform ${duration}s cubic-bezier(0.4, 0, 0.2, 1), opacity ${duration}s ease-out, filter ${duration}s ease-out`;
-      
+
       bananaContainer.appendChild(banana);
-      
-      // Animate banana floating up with more dynamic movement
+
       requestAnimationFrame(() => {
-        const endY = Math.random() * -60 - 30; // -30 to -90vh
-        const endX = (Math.random() - 0.5) * 150; // -75 to 75px
-        const scale = Math.random() * 0.3 + 0.7; // 0.7 to 1.0
+        const endY = Math.random() * -60 - 30;
+        const endX = (Math.random() - 0.5) * 150;
+        const scale = Math.random() * 0.3 + 0.7;
         banana.style.transform = `translate(${endX}px, ${endY}vh) rotate(${rotationSpeed}deg) scale(${scale})`;
         banana.style.opacity = '0';
         banana.style.filter = `drop-shadow(0 8px 16px rgba(0, 0, 0, 0.3))`;
       });
-      
-      // Remove banana after animation
+
       setTimeout(() => {
         if (banana.parentNode) {
           banana.remove();
@@ -562,7 +545,6 @@ class BananaBlitzGame {
       }, duration * 1000);
     };
 
-    // Rotate messages
     const rotateMessage = () => {
       if (!messageEl || !isScreensaverActive) return;
       currentMessageIndex = (currentMessageIndex + 1) % funnyMessages.length;
@@ -573,56 +555,46 @@ class BananaBlitzGame {
       }, 12000);
     };
 
-    // Show screensaver with animations
     const showScreensaver = () => {
       if (isScreensaverActive || document.hidden) return;
-      
+
       isScreensaverActive = true;
-      
-      // Apply theme to screensaver container
+
       const currentSkin = this.currentSkin || '';
       screensaver.classList.remove('skin-jungle', 'skin-neon', 'skin-mono');
       if (currentSkin) {
         screensaver.classList.add(currentSkin);
       }
-      
-      // Refresh greetings/messages before showing (includes latest achievements)
+
       refreshFunnyMessages();
-      
+
       screensaver.classList.remove('hidden');
-      
-      // Fade in
+
       requestAnimationFrame(() => {
         screensaver.style.opacity = '1';
       });
-      
-      // Play monkey sound
+
       if (this.sounds && this.sounds.monkey && this.soundEnabled) {
         try {
           const monkeySound = this.sounds.monkey.cloneNode();
           monkeySound.volume = this.sfxVolume / 100;
-          monkeySound.play().catch(() => {});
-        } catch (e) {}
+          monkeySound.play().catch(() => { });
+        } catch (e) { }
       }
 
-      // Start message rotation (every 4 seconds)
       messageRotationInterval = setInterval(rotateMessage, 4000);
-      
-      // Start floating bananas (every 1.5 seconds)
+
       bananaAnimationInterval = setInterval(createFloatingBanana, 1500);
-      createFloatingBanana(); // Create first one immediately
+      createFloatingBanana();
     };
 
-    // Hide screensaver with animations
     const hideScreensaver = () => {
       if (!isScreensaverActive) return;
-      
+
       isScreensaverActive = false;
-      
-      // Fade out
+
       screensaver.style.opacity = '0';
-      
-      // Stop intervals
+
       if (messageRotationInterval) {
         clearInterval(messageRotationInterval);
         messageRotationInterval = null;
@@ -631,13 +603,11 @@ class BananaBlitzGame {
         clearInterval(bananaAnimationInterval);
         bananaAnimationInterval = null;
       }
-      
-      // Clear bananas
+
       if (bananaContainer) {
         bananaContainer.innerHTML = '';
       }
-      
-      // Hide after fade
+
       setTimeout(() => {
         if (!isScreensaverActive) {
           screensaver.classList.add('hidden');
@@ -645,16 +615,13 @@ class BananaBlitzGame {
       }, 700);
     };
 
-    // Reset inactivity timer
     const resetInactivityTimer = () => {
       if (inactivityTimer) {
         clearTimeout(inactivityTimer);
       }
-      
-      // Hide screensaver if it's active
+
       hideScreensaver();
 
-      // Set new timer
       inactivityTimer = setTimeout(() => {
         if (!document.hidden && !isScreensaverActive) {
           showScreensaver();
@@ -662,7 +629,6 @@ class BananaBlitzGame {
       }, INACTIVITY_TIMEOUT);
     };
 
-    // Track various user activities
     const activities = [
       'mousedown',
       'mousemove',
@@ -677,23 +643,18 @@ class BananaBlitzGame {
       document.addEventListener(activity, resetInactivityTimer, { passive: true });
     });
 
-    // Also track visibility changes
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) {
-        // Pause timer when tab is hidden
         if (inactivityTimer) {
           clearTimeout(inactivityTimer);
           inactivityTimer = null;
         }
-        // Hide screensaver if visible
         hideScreensaver();
       } else {
-        // Resume timer when tab becomes visible
         resetInactivityTimer();
       }
     });
 
-    // Initialize the timer
     resetInactivityTimer();
   }
 
@@ -769,9 +730,6 @@ class BananaBlitzGame {
         return;
       }
     });
-
-    // Theme toggle button uses onclick="toggleTheme()" handler
-    // No need for duplicate event listener here to avoid double-toggling
 
     document.getElementById('soundToggle')?.addEventListener('change', () => this.toggleSound());
     document.getElementById('musicToggle')?.addEventListener('change', () => this.toggleMusic());
@@ -964,7 +922,7 @@ class BananaBlitzGame {
       'assets/audio/sfx/click.wav',
       'assets/audio/sfx/correct.mp3',
       'assets/audio/sfx/wrong.wav',
-        'assets/audio/sfx/level up.mp3',
+      'assets/audio/sfx/level up.mp3',
       'assets/audio/music/music-default yellow.mp3',
       'assets/audio/music/music-jungle adventure.mp3',
       'assets/audio/music/music-monochromatic.mp3',
@@ -1103,7 +1061,6 @@ class BananaBlitzGame {
       return;
     }
 
-    // Avoid repeatedly adding spinners if already marked busy
     if (busy) {
       if (button.dataset.busy === 'true') return;
       button.dataset.busy = 'true';
@@ -1114,7 +1071,6 @@ class BananaBlitzGame {
     button.disabled = busy;
     if (busy) {
       button.classList.add('opacity-75', 'pointer-events-none');
-      // Preserve full original HTML (so icons/images stay intact)
       const originalHtml = button.dataset.originalHtml || button.innerHTML;
       if (!button.dataset.originalHtml) button.dataset.originalHtml = originalHtml;
       button.innerHTML = `<span class="inline-block animate-spin mr-2">⟳</span>${originalHtml}`;
@@ -1502,8 +1458,7 @@ class BananaBlitzGame {
         : '';
       this.showToast(`🎊 LEVEL ${this.currentLevel}! +${levelBonus} pts${toastSuffix}`, 'success', 3000);
       this.updateProgressUI();
-      
-      // Update highest level and tier reached
+
       await this.updateHighestLevelAndTier(this.currentLevel, newTier);
     }
 
@@ -1518,27 +1473,24 @@ class BananaBlitzGame {
       const userRef = this.db.ref('users/' + user.uid);
       const snap = await userRef.once('value');
       const curr = snap.val() || {};
-      
+
       const updates = {};
-      
-      // Update highest level if current is higher
+
       const highestLevel = curr.highestLevel || 0;
       if (level > highestLevel) {
         updates.highestLevel = level;
       }
-      
-      // Update highest tier if current is higher
+
       if (tier && tier.label) {
         const tierOrder = CLASSIC_LEVEL_TIERS.findIndex(t => t.label === tier.label);
         const currentHighestTierLabel = curr.highestTier || '';
         const currentHighestTierOrder = CLASSIC_LEVEL_TIERS.findIndex(t => t.label === currentHighestTierLabel);
-        
-        // If no previous tier or current tier is higher in order
+
         if (currentHighestTierOrder === -1 || tierOrder > currentHighestTierOrder) {
           updates.highestTier = tier.label;
         }
       }
-      
+
       if (Object.keys(updates).length > 0) {
         await userRef.update(updates);
       }
@@ -2157,7 +2109,6 @@ class BananaBlitzGame {
 
       this.currentDailyAnswer = puzzle.solution;
       if (img) {
-        // Preload image before displaying to keep monkey.png visible during load
         const preImg = new window.Image();
         preImg.onload = () => {
           img.src = puzzle.question;
@@ -2460,7 +2411,6 @@ class BananaBlitzGame {
       modal.classList.remove('hidden');
       modal.classList.add('flex');
       window.game.renderPresetAvatars();
-      // initialize modal preview from localStorage (custom) or saved avatar, or show initials
       const modalPreview = document.getElementById('avatarModalPreview');
       const modalInitials = document.getElementById('avatarModalPreviewInitials');
       const modalLabel = document.getElementById('avatarModalPreviewLabel');
@@ -2535,7 +2485,6 @@ class BananaBlitzGame {
       <p class="text-gray-800 dark:text-white">${accuracy}</p> 
     </div>`;
 
-    // Update Classic Mode Progress section
     const highestTierEl = document.getElementById('profileHighestTier');
     const highestLevelEl = document.getElementById('profileHighestLevel');
     if (highestTierEl) {
@@ -2611,7 +2560,14 @@ class BananaBlitzGame {
   }
 
   initCelebrations() {
-    const GIPHY_API_KEY = window.MultiplayerManager?.GIPHY_API_KEY || 'Xfe5LwxHwFbmfi7IAVXBMfwaI1NE48uu';
+    const GIPHY_API_KEY = window.GIPHY_API_KEY || window.MultiplayerManager?.GIPHY_API_KEY || '';
+    if (!GIPHY_API_KEY) {
+      console.warn('GIPHY API key not configured. Using fallback celebration image.');
+      this._celebrationImages = ['https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif'];
+      this._shuffleCelebrationImages();
+      this._cacheCelebrationImages();
+      return;
+    }
     this._celebrationImages = [];
     fetch(`https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&q=celebration&limit=30&rating=pg`)
       .then(res => res.json())
@@ -2984,23 +2940,19 @@ window.toggleTheme = () => {
   if (window.game?.toggleTheme) {
     window.game.toggleTheme();
   } else {
-    // Fallback when window.game is not initialized yet (e.g., on Login UI)
     const isDark = document.documentElement.classList.contains('dark');
     const newIsDark = !isDark;
     document.documentElement.classList.toggle('dark', newIsDark);
     localStorage.setItem('themeMode', newIsDark ? 'dark' : 'light');
-    
-    // Update theme icons
+
     const themeIcon = document.getElementById('themeIcon');
     const mobileThemeIcon = document.getElementById('mobileThemeIcon');
     if (themeIcon) themeIcon.textContent = newIsDark ? '🌙' : '🌞';
     if (mobileThemeIcon) mobileThemeIcon.textContent = newIsDark ? '🌙' : '🌞';
-    
-    // Update darkToggle checkbox if it exists
+
     const chk = document.getElementById('darkToggle');
     if (chk && chk.checked !== newIsDark) chk.checked = newIsDark;
-    
-    // Dispatch theme change event
+
     window.dispatchEvent(new CustomEvent('themechange', { detail: { isDark: newIsDark } }));
   }
 };

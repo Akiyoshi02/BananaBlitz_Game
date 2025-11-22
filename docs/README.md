@@ -48,8 +48,12 @@ Players guess the number of bananas in each puzzle. Classic mode (lives + levels
    git clone https://github.com/Akiyoshi02/BananaBlitz_Game.git
    cd BananaBlitz_Game/public
    ```
-2. Open `index.html` directly in a browser OR serve with any static server.
-3. Use Firebase Emulator Suite to test authentication and database rules locally.
+2. **Configure API Keys** (Optional but recommended)
+   - Copy `firebase/api-keys-config.example.js` to `firebase/api-keys-config.js`
+   - Replace `YOUR_GIPHY_API_KEY_HERE` with your GIPHY API key from https://developers.giphy.com/
+   - Note: The example config includes a demo key, but you should use your own for production
+3. Open `index.html` directly in a browser OR serve with any static server.
+4. (Optional) Use Firebase Emulator Suite to test authentication and database rules locally.
 
 ---
 

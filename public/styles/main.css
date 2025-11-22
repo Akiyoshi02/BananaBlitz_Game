@@ -7,7 +7,6 @@
     transition: opacity 0.3s ease-in-out;
 }
 
-/* Theme-aware screensaver container */
 .skin-jungle .screensaver-container {
     background: rgba(212, 232, 196, 0.8) !important;
 }
@@ -32,7 +31,6 @@
     background: rgba(26, 26, 26, 0.8) !important;
 }
 
-/* Theme-aware message colors */
 .skin-jungle .screensaver-message {
     color: #558b2f !important;
 }
@@ -91,9 +89,12 @@
 }
 
 @keyframes fadeGradient {
-    0%, 100% {
+
+    0%,
+    100% {
         opacity: 1;
     }
+
     50% {
         opacity: 0.7;
     }
@@ -193,7 +194,6 @@
     background: linear-gradient(180deg, rgba(30, 58, 138, 0.6) 0%, rgba(15, 23, 42, 0.5) 60%, rgba(2, 6, 23, 0.4) 85%, transparent 100%);
 }
 
-/* Theme-aware styling - Jungle */
 .skin-jungle .screensaver-sky {
     filter: hue-rotate(120deg) saturate(1.2);
 }
@@ -214,7 +214,6 @@
     background: linear-gradient(180deg, rgba(27, 94, 32, 0.6) 0%, rgba(27, 94, 32, 0.5) 60%, rgba(1, 87, 155, 0.4) 85%, transparent 100%);
 }
 
-/* Theme-aware styling - Neon */
 .skin-neon .screensaver-sky {
     filter: brightness(1.1) saturate(1.3);
 }
@@ -244,7 +243,6 @@
     box-shadow: 0 0 16px rgba(255, 0, 110, 1), 0 0 32px rgba(131, 56, 236, 0.9);
 }
 
-/* Theme-aware styling - Monochrome */
 .skin-mono .screensaver-sky {
     filter: grayscale(1) contrast(1.1);
 }
@@ -271,7 +269,6 @@
     box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
 }
 
-/* Enhanced time-based visual changes */
 .sky-theme-morning {
     filter: brightness(1.15) contrast(1.05);
 }
@@ -451,7 +448,6 @@
     opacity: 1;
 }
 
-/* Sun rays for morning */
 .screensaver-sky .sky-sun-rays {
     position: absolute;
     top: 20%;
@@ -490,7 +486,6 @@
     transform: translate(-50%, -100%) rotate(90deg);
 }
 
-/* Additional sun rays using pseudo-elements on parent */
 .sky-theme-morning .sky-icon::before,
 .sky-theme-morning .sky-icon::after {
     content: '';
@@ -513,7 +508,6 @@
     transform: translate(-50%, -100%) rotate(-45deg);
 }
 
-/* Shooting stars for night */
 .screensaver-sky .sky-shooting-star {
     position: absolute;
     width: 3px;
@@ -555,7 +549,6 @@
     box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
 }
 
-/* Sparkles for all themes */
 .screensaver-sky .sky-sparkle {
     position: absolute;
     width: 4px;
@@ -588,7 +581,6 @@
     box-shadow: 0 0 8px rgba(255, 255, 255, 1);
 }
 
-/* Enhanced sky icon glow */
 .screensaver-sky .sky-icon {
     filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.25)) drop-shadow(0 0 20px rgba(255, 255, 255, 0.3));
 }
@@ -605,7 +597,6 @@
     filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.25)) drop-shadow(0 0 25px rgba(255, 255, 200, 0.4));
 }
 
-/* Sparkle positioning */
 .sparkle-1 {
     top: 15%;
     left: 20%;
@@ -636,7 +627,6 @@
     animation-delay: 0.5s;
 }
 
-/* Shooting star positioning */
 .shooting-star-1 {
     top: -10%;
     left: 20%;
@@ -673,6 +663,7 @@
 }
 
 @keyframes starTwinkle {
+
     0%,
     100% {
         opacity: 0.3;
@@ -686,6 +677,7 @@
 }
 
 @keyframes skyFloat {
+
     0%,
     100% {
         transform: translateY(0);
@@ -697,6 +689,7 @@
 }
 
 @keyframes skyGlowPulse {
+
     0%,
     100% {
         opacity: 0.25;
@@ -713,6 +706,7 @@
     0% {
         transform: translateX(-50%) rotate(0deg);
     }
+
     100% {
         transform: translateX(-50%) rotate(360deg);
     }
@@ -723,12 +717,15 @@
         opacity: 0;
         transform: translateY(0) scaleY(0.5);
     }
+
     5% {
         opacity: 1;
     }
+
     95% {
         opacity: 1;
     }
+
     100% {
         opacity: 0;
         transform: translateY(110vh) scaleY(1.2);
@@ -741,6 +738,7 @@
         transform: translateX(-50%) scale(1);
         box-shadow: 0 0 12px white, 0 0 24px rgba(255, 255, 255, 0.8);
     }
+
     100% {
         opacity: 0.8;
         transform: translateX(-50%) scale(1.2);
@@ -749,10 +747,13 @@
 }
 
 @keyframes sparkleFloat {
-    0%, 100% {
+
+    0%,
+    100% {
         opacity: 0;
         transform: translateY(0) scale(0.5);
     }
+
     50% {
         opacity: 1;
         transform: translateY(-20px) scale(1);

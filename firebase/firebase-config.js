@@ -17,7 +17,7 @@
     console.error("Firebase init error:", e);
   }
 
-  window.firebaseApp  = firebase.app();
+  window.firebaseApp = firebase.app();
   window.firebaseAuth = firebase.auth();
-  window.firebaseDb   = firebase.database();
+  window.firebaseDb = firebase.database();
 })();
