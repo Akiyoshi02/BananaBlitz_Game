@@ -1,0 +1,63 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Prepare deployment
+        env:
+          GIPHY_API_KEY: ${{ secrets.GIPHY_API_KEY }}
+        run: |
+          mkdir -p _site
+          
+          cp -r public/* _site/
+          
+          cp -r firebase _site/
+          
+          if [ -n "$GIPHY_API_KEY" ]; then
+            printf '%s\n' \
+              '(function () {' \
+              "  window.GIPHY_API_KEY = window.GIPHY_API_KEY || '$GIPHY_API_KEY';" \
+              '})();' > _site/firebase/api-keys-config.js
+          else
+            cp _site/firebase/api-keys-config.example.js _site/firebase/api-keys-config.js
+            echo "Warning: GIPHY_API_KEY secret not set. Using example file."
+          fi
+          
+          if [ -f "_site/index.html" ]; then
+            sed -i 's|\.\./firebase/|firebase/|g' _site/index.html
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
