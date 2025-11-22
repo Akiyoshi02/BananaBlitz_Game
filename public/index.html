@@ -17,6 +17,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="../firebase/firebase-config.js"></script>
+    <script src="../firebase/api-keys-config.js"></script>
 
     <script src="scripts/auth.js"></script>
     <script src="scripts/multiplayer.js"></script>
@@ -31,13 +32,15 @@
 
     <div id="falling-bananas"></div>
 
-    <!-- Screensaver overlay -->
-    <div id="screensaver" class="fixed inset-0 flex flex-col items-center justify-center bg-yellow-50/80 dark:bg-gray-700/80 z-[9999] hidden opacity-0 transition-opacity duration-700 screensaver-container">
+    <div id="screensaver"
+        class="fixed inset-0 flex flex-col items-center justify-center bg-yellow-50/80 dark:bg-gray-700/80 z-[9999] hidden opacity-0 transition-opacity duration-700 screensaver-container">
         <div id="screensaverBananas" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
         <div id="screensaverSky" class="screensaver-sky"></div>
         <div class="relative z-10 flex flex-col items-center">
-            <img src="assets/images/monkey.png" alt="Monkey" class="w-48 h-48 md:w-64 md:h-64 object-contain animate-bounce-slow mb-4 md:mb-6 screensaver-monkey" />
-            <p id="screensaverMessage" class="text-xl md:text-2xl font-semibold text-yellow-600 dark:text-yellow-400 animate-pulse-slow text-center px-4 screensaver-message">
+            <img src="assets/images/monkey.png" alt="Monkey"
+                class="w-48 h-48 md:w-64 md:h-64 object-contain animate-bounce-slow mb-4 md:mb-6 screensaver-monkey" />
+            <p id="screensaverMessage"
+                class="text-xl md:text-2xl font-semibold text-yellow-600 dark:text-yellow-400 animate-pulse-slow text-center px-4 screensaver-message">
                 The monkey got tired of counting bananas... 🍌
             </p>
             <p class="text-sm md:text-base text-gray-600 dark:text-gray-400 mt-2 animate-pulse-slow text-center px-4">
@@ -296,7 +299,6 @@
                 }
 
                 function initTopClicksLeaderboard() {
-                    // Remove existing listener if any
                     if (leaderboardQueryRef && leaderboardListener) {
                         try {
                             leaderboardQueryRef.off('value', leaderboardListener);
@@ -307,7 +309,6 @@
                     leaderboardListener = null;
                     leaderboardQueryRef = null;
 
-                    // Reset to loading state
                     remoteTopRows = null;
                     updateLeaderboardUI();
 
@@ -330,7 +331,6 @@
                                     snap.forEach(child => {
                                         const v = child.val() || {};
                                         const clickCount = v.bananaClickCount || 0;
-                                        // Only include users with clicks > 0
                                         if (clickCount > 0) {
                                             rows.push({
                                                 name: v.username || child.key,
@@ -340,7 +340,6 @@
                                         }
                                     });
                                 }
-                                // Sort descending and take top 3
                                 rows.sort((a, b) => b.val - a.val);
                                 remoteTopRows = rows.slice(0, 3);
                                 updateLeaderboardUI();
@@ -348,12 +347,10 @@
                             leaderboardListener = listener;
                             q.on('value', listener, (error) => {
                                 console.warn('Leaderboard listener error:', error);
-                                // On error, set to empty array to show "No clicks yet"
                                 remoteTopRows = [];
                                 updateLeaderboardUI();
                             });
                         } else {
-                            // Database not available yet, try again after a delay
                             setTimeout(() => {
                                 if (remoteTopRows === null) {
                                     initTopClicksLeaderboard();
@@ -362,21 +359,17 @@
                         }
                     } catch (e) {
                         console.warn('Failed to attach remote leaderboard listener', e);
-                        // On error, set to empty array to show "No clicks yet"
                         remoteTopRows = [];
                         updateLeaderboardUI();
                     }
                 }
 
-                // Initialize leaderboard listener
                 initTopClicksLeaderboard();
 
-                // Re-initialize after login (when Firebase auth state changes)
                 if (window.firebaseAuth || (window.firebase && window.firebase.auth)) {
                     const auth = window.firebaseAuth || window.firebase.auth();
                     if (auth) {
                         auth.onAuthStateChanged(() => {
-                            // Re-initialize leaderboard after auth state change
                             setTimeout(() => {
                                 initTopClicksLeaderboard();
                             }, 500);
@@ -384,11 +377,8 @@
                     }
                 }
 
-                // Also try to initialize when window.game is ready
                 if (window.game) {
-                    // Already initialized
                 } else {
-                    // Wait for window.game to be available
                     const checkGame = setInterval(() => {
                         if (window.game && window.game.auth) {
                             clearInterval(checkGame);
@@ -399,12 +389,10 @@
                             });
                         }
                     }, 100);
-                    // Stop checking after 10 seconds
                     setTimeout(() => clearInterval(checkGame), 10000);
                 }
 
                 document.addEventListener('click', (e) => {
-                    // Don't allow clicking bananas when Login/Registration UI is visible
                     const authSection = document.getElementById('authSection');
                     if (authSection && !authSection.classList.contains('hidden')) {
                         return;
@@ -1769,7 +1757,8 @@
 
                                         <div id="mpChatInputLobby" contenteditable="true"
                                             class="w-full px-3 md:px-4 py-2 md:py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm md:text-base"
-                                            style="min-height: 2.5em; outline: none;" data-placeholder="Type a message…">
+                                            style="min-height: 2.5em; outline: none;"
+                                            data-placeholder="Type a message…">
                                         </div>
 
                                         <button id="mpEmojiBtnLobby" type="button" aria-label="Open emoji picker"
@@ -1779,20 +1768,24 @@
                                         <div id="mpGifPickerLobby"
                                             class="hidden absolute right-0 bottom-full mb-2 w-80 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-2 shadow z-50">
                                             <div class="flex mb-2">
-                                                <input id="mpGifSearchInputLobby" type="text" placeholder="Search GIFs..."
+                                                <input id="mpGifSearchInputLobby" type="text"
+                                                    placeholder="Search GIFs..."
                                                     class="flex-1 px-2 py-1 rounded border border-gray-300 text-sm" />
                                                 <button id="mpGifSearchBtnLobby"
                                                     class="ml-2 px-2 py-1 rounded bg-yellow-400 text-white text-sm">Search</button>
                                             </div>
-                                            <div id="mpGifResultsLobby" class="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto">
+                                            <div id="mpGifResultsLobby"
+                                                class="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto">
                                             </div>
                                         </div>
 
                                         <div id="mpEmojiPickerLobby"
                                             class="hidden absolute right-0 bottom-full mb-2 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-2 shadow z-50">
-                                            <div class="flex flex-wrap gap-1 max-h-40 overflow-y-auto p-1 custom-scrollbar">
+                                            <div
+                                                class="flex flex-wrap gap-1 max-h-40 overflow-y-auto p-1 custom-scrollbar">
                                                 <div class="mb-2">
-                                                    <div class="text-xs font-semibold text-gray-500 mb-1">Faces & Emotions
+                                                    <div class="text-xs font-semibold text-gray-500 mb-1">Faces &
+                                                        Emotions
                                                     </div>
                                                     <button type="button" class="mp-emoji p-1 text-lg"
                                                         data-emoji="😀">😀</button>
@@ -1828,7 +1821,8 @@
                                                         data-emoji="😚">😚</button>
                                                 </div>
                                                 <div class="mb-2">
-                                                    <div class="text-xs font-semibold text-gray-500 mb-1">Playful / Silly
+                                                    <div class="text-xs font-semibold text-gray-500 mb-1">Playful /
+                                                        Silly
                                                     </div>
                                                     <button type="button" class="mp-emoji p-1 text-lg"
                                                         data-emoji="😋">😋</button>
@@ -1842,7 +1836,8 @@
                                                         data-emoji="🤩">🤩</button>
                                                 </div>
                                                 <div class="mb-2">
-                                                    <div class="text-xs font-semibold text-gray-500 mb-1">Thinking / Neutral
+                                                    <div class="text-xs font-semibold text-gray-500 mb-1">Thinking /
+                                                        Neutral
                                                     </div>
                                                     <button type="button" class="mp-emoji p-1 text-lg"
                                                         data-emoji="🤔">🤔</button>
@@ -1860,7 +1855,8 @@
                                                         data-emoji="🙄">🙄</button>
                                                 </div>
                                                 <div class="mb-2">
-                                                    <div class="text-xs font-semibold text-gray-500 mb-1">Reactions</div>
+                                                    <div class="text-xs font-semibold text-gray-500 mb-1">Reactions
+                                                    </div>
                                                     <button type="button" class="mp-emoji p-1 text-lg"
                                                         data-emoji="👍">👍</button>
                                                     <button type="button" class="mp-emoji p-1 text-lg"
@@ -1899,7 +1895,8 @@
                                                         data-emoji="🏆">🏆</button>
                                                 </div>
                                                 <div class="mb-2">
-                                                    <div class="text-xs font-semibold text-gray-500 mb-1">Food & Drink</div>
+                                                    <div class="text-xs font-semibold text-gray-500 mb-1">Food & Drink
+                                                    </div>
                                                     <button type="button" class="mp-emoji p-1 text-lg"
                                                         data-emoji="🍌">🍌</button>
                                                     <button type="button" class="mp-emoji p-1 text-lg"
@@ -1925,7 +1922,8 @@
                                                         data-emoji="🐸">🐸</button>
                                                 </div>
                                                 <div class="mb-2">
-                                                    <div class="text-xs font-semibold text-gray-500 mb-1">Transport & Travel
+                                                    <div class="text-xs font-semibold text-gray-500 mb-1">Transport &
+                                                        Travel
                                                     </div>
                                                     <button type="button" class="mp-emoji p-1 text-lg"
                                                         data-emoji="🚗">🚗</button>
@@ -1933,7 +1931,8 @@
                                                         data-emoji="✈️">✈️</button>
                                                 </div>
                                                 <div class="mb-2">
-                                                    <div class="text-xs font-semibold text-gray-500 mb-1">Weather & Nature
+                                                    <div class="text-xs font-semibold text-gray-500 mb-1">Weather &
+                                                        Nature
                                                     </div>
                                                     <button type="button" class="mp-emoji p-1 text-lg"
                                                         data-emoji="🌞">🌞</button>
@@ -1955,7 +1954,8 @@
                                 </div>
 
                                 <p class="mt-3 text-[11px] md:text-xs text-gray-600 dark:text-gray-300">
-                                    Press <kbd class="px-1 py-0.5 bg-gray-200 dark:text-black rounded">Enter</kbd> to send.
+                                    Press <kbd class="px-1 py-0.5 bg-gray-200 dark:text-black rounded">Enter</kbd> to
+                                    send.
                                     Max 300 chars.
                                 </p>
                             </div>
@@ -2007,8 +2007,8 @@
                                 <div id="multiplayerLoadingOverlay"
                                     class="absolute inset-0 flex flex-col items-center justify-center bg-yellow-50/80 dark:bg-gray-700/80 text-gray-800 dark:text-white text-lg font-semibold z-10 hidden">
                                     <span class="mb-2">
-                                        <svg class="animate-spin h-8 w-8 text-yellow-500" xmlns="http://www.w3.org/2000/svg"
-                                            fill="none" viewBox="0 0 24 24">
+                                        <svg class="animate-spin h-8 w-8 text-yellow-500"
+                                            xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
                                                 stroke-width="4"></circle>
                                             <path class="opacity-75" fill="currentColor"
@@ -2069,7 +2069,8 @@
 
                                         <div id="mpChatInput" contenteditable="true"
                                             class="w-full px-3 md:px-4 py-2 md:py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm md:text-base"
-                                            style="min-height: 2.5em; outline: none;" data-placeholder="Type a message…">
+                                            style="min-height: 2.5em; outline: none;"
+                                            data-placeholder="Type a message…">
                                         </div>
 
                                         <button id="mpEmojiBtn" type="button" aria-label="Open emoji picker"
@@ -2084,15 +2085,18 @@
                                                 <button id="mpGifSearchBtn"
                                                     class="ml-2 px-2 py-1 rounded bg-yellow-400 text-white text-sm">Search</button>
                                             </div>
-                                            <div id="mpGifResults" class="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto">
+                                            <div id="mpGifResults"
+                                                class="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto">
                                             </div>
                                         </div>
 
                                         <div id="mpEmojiPicker"
                                             class="hidden absolute right-0 bottom-full mb-2 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-2 shadow z-50">
-                                            <div class="flex flex-wrap gap-1 max-h-40 overflow-y-auto p-1 custom-scrollbar">
+                                            <div
+                                                class="flex flex-wrap gap-1 max-h-40 overflow-y-auto p-1 custom-scrollbar">
                                                 <div class="mb-2">
-                                                    <div class="text-xs font-semibold text-gray-500 mb-1">Faces & Emotions
+                                                    <div class="text-xs font-semibold text-gray-500 mb-1">Faces &
+                                                        Emotions
                                                     </div>
                                                     <button type="button" class="mp-emoji p-1 text-lg"
                                                         data-emoji="😀">😀</button>
@@ -2128,7 +2132,8 @@
                                                         data-emoji="😚">😚</button>
                                                 </div>
                                                 <div class="mb-2">
-                                                    <div class="text-xs font-semibold text-gray-500 mb-1">Playful / Silly
+                                                    <div class="text-xs font-semibold text-gray-500 mb-1">Playful /
+                                                        Silly
                                                     </div>
                                                     <button type="button" class="mp-emoji p-1 text-lg"
                                                         data-emoji="😋">😋</button>
@@ -2142,7 +2147,8 @@
                                                         data-emoji="🤩">🤩</button>
                                                 </div>
                                                 <div class="mb-2">
-                                                    <div class="text-xs font-semibold text-gray-500 mb-1">Thinking / Neutral
+                                                    <div class="text-xs font-semibold text-gray-500 mb-1">Thinking /
+                                                        Neutral
                                                     </div>
                                                     <button type="button" class="mp-emoji p-1 text-lg"
                                                         data-emoji="🤔">🤔</button>
@@ -2160,7 +2166,8 @@
                                                         data-emoji="🙄">🙄</button>
                                                 </div>
                                                 <div class="mb-2">
-                                                    <div class="text-xs font-semibold text-gray-500 mb-1">Reactions</div>
+                                                    <div class="text-xs font-semibold text-gray-500 mb-1">Reactions
+                                                    </div>
                                                     <button type="button" class="mp-emoji p-1 text-lg"
                                                         data-emoji="👍">👍</button>
                                                     <button type="button" class="mp-emoji p-1 text-lg"
@@ -2199,7 +2206,8 @@
                                                         data-emoji="🏆">🏆</button>
                                                 </div>
                                                 <div class="mb-2">
-                                                    <div class="text-xs font-semibold text-gray-500 mb-1">Food & Drink</div>
+                                                    <div class="text-xs font-semibold text-gray-500 mb-1">Food & Drink
+                                                    </div>
                                                     <button type="button" class="mp-emoji p-1 text-lg"
                                                         data-emoji="🍌">🍌</button>
                                                     <button type="button" class="mp-emoji p-1 text-lg"
@@ -2225,7 +2233,8 @@
                                                         data-emoji="🐸">🐸</button>
                                                 </div>
                                                 <div class="mb-2">
-                                                    <div class="text-xs font-semibold text-gray-500 mb-1">Transport & Travel
+                                                    <div class="text-xs font-semibold text-gray-500 mb-1">Transport &
+                                                        Travel
                                                     </div>
                                                     <button type="button" class="mp-emoji p-1 text-lg"
                                                         data-emoji="🚗">🚗</button>
@@ -2233,7 +2242,8 @@
                                                         data-emoji="✈️">✈️</button>
                                                 </div>
                                                 <div class="mb-2">
-                                                    <div class="text-xs font-semibold text-gray-500 mb-1">Weather & Nature
+                                                    <div class="text-xs font-semibold text-gray-500 mb-1">Weather &
+                                                        Nature
                                                     </div>
                                                     <button type="button" class="mp-emoji p-1 text-lg"
                                                         data-emoji="🌞">🌞</button>
@@ -2255,7 +2265,8 @@
                                 </div>
 
                                 <p class="mt-3 text-[11px] md:text-xs text-gray-600 dark:text-gray-300">
-                                    Press <kbd class="px-1 py-0.5 bg-gray-200 dark:text-black rounded">Enter</kbd> to send.
+                                    Press <kbd class="px-1 py-0.5 bg-gray-200 dark:text-black rounded">Enter</kbd> to
+                                    send.
                                     Max 300 chars.
                                 </p>
                             </div>
@@ -2591,7 +2602,6 @@
                     return;
                 }
 
-                // show cached values immediately if available
                 if (drawerStatsCache) {
                     setDrawerStatsDisplay(drawerStatsCache);
                 } else {
@@ -2635,9 +2645,6 @@
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape' && menu?.classList.contains('open')) closeDrawer();
             });
-
-            // Theme toggle buttons use onclick="toggleTheme()" handlers which call window.toggleTheme()
-            // No need for duplicate event listeners here
 
             document.getElementById('darkToggle')?.addEventListener('change', (e) => {
                 setTheme(e.target.checked);

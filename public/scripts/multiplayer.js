@@ -2,7 +2,9 @@ class MultiplayerManager {
     matchmakingQueueRef = null;
     matchmakingDisconnectRef = null;
 
-    static GIPHY_API_KEY = 'Xfe5LwxHwFbmfi7IAVXBMfwaI1NE48uu';
+    static get GIPHY_API_KEY() {
+        return window.GIPHY_API_KEY || '';
+    }
 
     constructor(game) {
         this.game = game;
@@ -398,11 +400,10 @@ class MultiplayerManager {
 
             const img = document.getElementById('multiplayerImage');
             const loadingOverlay = document.getElementById('multiplayerLoadingOverlay');
-            
+
             if (roomData.currentPuzzle) {
                 this.displayCurrentPuzzle(roomData.currentPuzzle);
             } else {
-                // Reset to placeholder when no puzzle
                 if (img) {
                     img.src = 'assets/images/monkey.png';
                     img.alt = 'Multiplayer Puzzle';
@@ -786,13 +787,11 @@ class MultiplayerManager {
     displayCurrentPuzzle(puzzleData) {
         const img = document.getElementById('multiplayerImage');
         const loadingOverlay = document.getElementById('multiplayerLoadingOverlay');
-        
+
         if (!img || !puzzleData.imageUrl) return;
 
-        // Show loading overlay
         if (loadingOverlay) loadingOverlay.classList.remove('hidden');
 
-        // Preload image
         const preImg = new window.Image();
         preImg.onload = () => {
             img.src = puzzleData.imageUrl;
@@ -852,7 +851,6 @@ class MultiplayerManager {
         const statusEl = document.getElementById('multiplayerStatus');
         if (statusEl) statusEl.textContent = 'Create or join a room to start playing!';
 
-        // Clear both chat sections
         const list = document.getElementById('mpChatList');
         if (list) list.innerHTML = '';
         const listLobby = document.getElementById('mpChatListLobby');
@@ -865,11 +863,9 @@ class MultiplayerManager {
     }
 
     initChat(roomCode) {
-        // Clean up any existing chat listeners first
         this.cleanupRoomListeners();
         this.chatListeners = [];
 
-        // Initialize both chat sections (game and lobby)
         const listEl = document.getElementById('mpChatList');
         const listElLobby = document.getElementById('mpChatListLobby');
         const inputEl = document.getElementById('mpChatInput');
@@ -892,7 +888,6 @@ class MultiplayerManager {
         const gifResults = document.getElementById('mpGifResults');
         const gifResultsLobby = document.getElementById('mpGifResultsLobby');
 
-        // At least one chat section must exist
         if ((!listEl && !listElLobby) || (!inputEl && !inputElLobby) || (!sendBtn && !sendBtnLobby)) return;
 
         if (listEl) listEl.innerHTML = '';
@@ -908,7 +903,6 @@ class MultiplayerManager {
 
         this.chatListeners.push(() => this.chatRef && this.chatRef.off('child_added', onAdd));
 
-        // Set up send buttons and input handlers for both chat sections
         if (sendBtn && inputEl) {
             sendBtn.onclick = () => this.sendChat(inputEl);
             inputEl.onkeydown = (e) => {
@@ -929,7 +923,6 @@ class MultiplayerManager {
             };
         }
 
-        // Helper function to initialize emoji/GIF pickers for a chat section
         const initChatPickers = (input, emojiBtn, emojiPicker, gifBtn, gifPicker, gifSearchInput, gifSearchBtn, gifResults) => {
             if (!emojiBtn || !emojiPicker || !input) return;
 
@@ -941,8 +934,13 @@ class MultiplayerManager {
             if (gifBtn && gifPicker && gifSearchInput && gifSearchBtn && gifResults) {
                 const loadRecommendedGifs = async () => {
                     gifResults.innerHTML = '<div class="col-span-3 text-center text-gray-400">Loading...</div>';
+                    const apiKey = MultiplayerManager.GIPHY_API_KEY;
+                    if (!apiKey) {
+                        gifResults.innerHTML = '<div class="col-span-3 text-center text-yellow-400">GIPHY API key not configured. Please set window.GIPHY_API_KEY in api-keys-config.js</div>';
+                        return;
+                    }
                     try {
-                        const res = await fetch(`https://api.giphy.com/v1/gifs/search?api_key=${MultiplayerManager.GIPHY_API_KEY}&q=funny&limit=12&rating=pg`);
+                        const res = await fetch(`https://api.giphy.com/v1/gifs/search?api_key=${apiKey}&q=funny&limit=12&rating=pg`);
                         const data = await res.json();
                         gifResults.innerHTML = '';
                         if (data.data && data.data.length) {
@@ -980,9 +978,14 @@ class MultiplayerManager {
                 gifSearchBtn.onclick = async () => {
                     const q = gifSearchInput.value.trim();
                     if (!q) return;
+                    const apiKey = MultiplayerManager.GIPHY_API_KEY;
+                    if (!apiKey) {
+                        gifResults.innerHTML = '<div class="col-span-3 text-center text-yellow-400">GIPHY API key not configured. Please set window.GIPHY_API_KEY in api-keys-config.js</div>';
+                        return;
+                    }
                     gifResults.innerHTML = '<div class="col-span-3 text-center text-gray-400">Searching...</div>';
                     try {
-                        const res = await fetch(`https://api.giphy.com/v1/gifs/search?api_key=${MultiplayerManager.GIPHY_API_KEY}&q=${encodeURIComponent(q)}&limit=12&rating=pg`);
+                        const res = await fetch(`https://api.giphy.com/v1/gifs/search?api_key=${apiKey}&q=${encodeURIComponent(q)}&limit=12&rating=pg`);
                         const data = await res.json();
                         gifResults.innerHTML = '';
                         if (data.data && data.data.length) {
@@ -1023,7 +1026,6 @@ class MultiplayerManager {
             const emojiClickHandler = (ev) => {
                 const btn = ev.target.closest && ev.target.closest('.mp-emoji');
                 if (!btn) return;
-                // Only handle if the button is within this specific picker
                 if (!emojiPicker.contains(btn)) return;
                 ev.preventDefault();
                 ev.stopPropagation();
@@ -1046,10 +1048,8 @@ class MultiplayerManager {
             this.chatListeners.push(() => document.removeEventListener('click', outsideHandler));
         };
 
-        // Initialize pickers for game chat section
         initChatPickers(inputEl, emojiBtn, emojiPicker, gifBtn, gifPicker, gifSearchInput, gifSearchBtn, gifResults);
 
-        // Initialize pickers for lobby chat section
         initChatPickers(inputElLobby, emojiBtnLobby, emojiPickerLobby, gifBtnLobby, gifPickerLobby, gifSearchInputLobby, gifSearchBtnLobby, gifResultsLobby);
     }
 
@@ -1104,8 +1104,7 @@ class MultiplayerManager {
     renderChatMessage(msg) {
         const listEl = document.getElementById('mpChatList');
         const listElLobby = document.getElementById('mpChatListLobby');
-        
-        // Render to both chat lists if they exist
+
         const lists = [listEl, listElLobby].filter(el => el !== null);
         if (lists.length === 0) return;
 
@@ -1160,7 +1159,6 @@ class MultiplayerManager {
         bubble.appendChild(time);
         row.appendChild(bubble);
 
-        // Append to all chat lists
         lists.forEach(list => {
             const rowClone = row.cloneNode(true);
             list.appendChild(rowClone);
