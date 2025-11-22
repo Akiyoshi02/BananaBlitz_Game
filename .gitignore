@@ -11,7 +11,7 @@ Thumbs.db
 *.log
 
 # environment / secrets
-backend/firebase-config.js
+firebase/api-keys-config.js
 .env
 *.env
 

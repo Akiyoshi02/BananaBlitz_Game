@@ -183,8 +183,6 @@ class AuthManager {
     const isRegistrationAttempt = mode === 'register' || !document.getElementById('registerForm')?.classList.contains('hidden');
 
     try {
-      // Prevent the auth state change handler from automatically handling
-      // the intermediate auth state while we complete the popup/redirect flow.
       this._blockAutoLogin = true;
 
       const cred = await this.auth.signInWithPopup(provider);
@@ -902,7 +900,6 @@ class AuthManager {
     }
   }
 
-  /******************* Change Password Modal *******************/
   openChangePasswordModal() {
     const user = this.auth.currentUser;
     if (!user) {
@@ -1456,7 +1453,7 @@ class AuthManager {
         break;
       case 'auth/user-not-found':
         message = 'No account found with this email';
-          this.setFieldError('loginUsername', message);
+        this.setFieldError('loginUsername', message);
         break;
       case 'auth/wrong-password':
         message = 'Incorrect password';
