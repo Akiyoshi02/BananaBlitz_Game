@@ -6,6 +6,8 @@ Banana Blitz is a single-page browser game built with HTML, CSS and vanilla Java
 
 Players guess the number of bananas in each puzzle. Classic mode (lives + levels), timed difficulty, daily puzzles, realtime multiplayer rooms, friends system, and matchmaking expand replayability. You can customize your experience with avatars, themes, skins, and background music.
 
+[![Play on GitHub Pages](https://img.shields.io/badge/Play%20Now-GitHub%20Pages-orange?style=for-the-badge&logo=github)](https://akiyoshi02.github.io/BananaBlitz_Game/)
+
 ---
 ## 🎮 Gameplay Overview
 - Fetch puzzle (Banana API → fallback random banana image)
