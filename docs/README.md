@@ -1,6 +1,6 @@
 # 🍌 Banana Blitz
 
-**Version 1.2.0 - Browser Puzzle & Realtime Multiplayer Game**
+**Version 1.3.0 - Browser Puzzle & Realtime Multiplayer Game**
 
 Banana Blitz is a single-page browser game built with HTML, CSS and vanilla JavaScript, backed by Firebase Authentication and Realtime Database. It fetches puzzles from the [Banana API](https://marcconrad.com/uob/banana/api.php) and falls back to an Unsplash banana image + generated count when the API is unavailable.
 
