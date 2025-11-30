@@ -17,6 +17,7 @@ class AuthManager {
     this._deletingAuthUser = false;
     this._wasLoggedIn = false;
     this._preserveRegisterFields = null;
+    this._preserveLoginFields = null;
     this._guestAuthPromise = null;
     this._guestAuthUnavailable = false;
     this.setupAuthListener();
@@ -141,25 +142,44 @@ class AuthManager {
 
             if (intent === 'register' && exists) {
               this._suppressNextLogoutToast = true;
+              const emailToPreserve = res.user.email || '';
+              this._preserveLoginFields = { username: emailToPreserve };
               try { await this.auth.signOut(); } catch { }
               this.showLogin();
-              const loginField = document.getElementById('loginUsername');
-              if (loginField) loginField.value = res.user.email || '';
+              setTimeout(() => {
+                const loginField = document.getElementById('loginUsername');
+                if (loginField && (!loginField.value || loginField.value !== emailToPreserve)) {
+                  loginField.value = emailToPreserve;
+                }
+              }, 100);
               this.game.showToast('Google account already registered. Please sign in.', 'info');
               return;
             }
 
             if ((intent === 'login' || !intent) && !exists) {
               this._suppressNextLogoutToast = true;
+              const emailToPreserve = res.user.email || '';
+              const usernameToPreserve = res.user.displayName || '';
+              this._preserveRegisterFields = {
+                email: emailToPreserve,
+                username: usernameToPreserve,
+                password: ''
+              };
               this._deletingAuthUser = true;
               try { await res.user.delete(); } catch { }
               try { await this.auth.signOut(); } catch { }
               this._deletingAuthUser = false;
               this.showRegister();
-              const regEmailField = document.getElementById('regEmail');
-              if (regEmailField) regEmailField.value = res.user.email || '';
-              const regUsernameField = document.getElementById('regUsername');
-              if (regUsernameField && res.user.displayName) regUsernameField.value = res.user.displayName;
+              setTimeout(() => {
+                const regEmailField = document.getElementById('regEmail');
+                if (regEmailField && (!regEmailField.value || regEmailField.value !== emailToPreserve)) {
+                  regEmailField.value = emailToPreserve;
+                }
+                const regUsernameField = document.getElementById('regUsername');
+                if (regUsernameField && usernameToPreserve && (!regUsernameField.value || regUsernameField.value !== usernameToPreserve)) {
+                  regUsernameField.value = usernameToPreserve;
+                }
+              }, 100);
               this.game.showToast('Google account not registered. Please register first.', 'warning');
               return;
             }
@@ -194,23 +214,42 @@ class AuthManager {
 
       if (isRegistrationAttempt && exists) {
         this._suppressNextLogoutToast = true;
+        const emailToPreserve = user.email || '';
+        this._preserveLoginFields = { username: emailToPreserve };
         try { await this.auth.signOut(); } catch { }
         this.showLogin();
-        const loginField = document.getElementById('loginUsername');
-        if (loginField) loginField.value = user.email || '';
+        setTimeout(() => {
+          const loginField = document.getElementById('loginUsername');
+          if (loginField && (!loginField.value || loginField.value !== emailToPreserve)) {
+            loginField.value = emailToPreserve;
+          }
+        }, 100);
         this.game.showToast('Google account already registered. Please sign in.', 'info');
         return;
       } else if (!isRegistrationAttempt && !exists) {
         this._suppressNextLogoutToast = true;
+        const emailToPreserve = user.email || '';
+        const usernameToPreserve = user.displayName || '';
+        this._preserveRegisterFields = {
+          email: emailToPreserve,
+          username: usernameToPreserve,
+          password: ''
+        };
         this._deletingAuthUser = true;
         try { await user.delete(); } catch { }
         try { await this.auth.signOut(); } catch { }
         this._deletingAuthUser = false;
         this.showRegister();
-        const regEmailField = document.getElementById('regEmail');
-        if (regEmailField) regEmailField.value = user.email || '';
-        const regUsernameField = document.getElementById('regUsername');
-        if (regUsernameField && user.displayName) regUsernameField.value = user.displayName;
+        setTimeout(() => {
+          const regEmailField = document.getElementById('regEmail');
+          if (regEmailField && (!regEmailField.value || regEmailField.value !== emailToPreserve)) {
+            regEmailField.value = emailToPreserve;
+          }
+          const regUsernameField = document.getElementById('regUsername');
+          if (regUsernameField && usernameToPreserve && (!regUsernameField.value || regUsernameField.value !== usernameToPreserve)) {
+            regUsernameField.value = usernameToPreserve;
+          }
+        }, 100);
         this.game.showToast('Google account not registered. Please register first.', 'warning');
         return;
       }
@@ -274,7 +313,6 @@ class AuthManager {
         const profile = snap.val() || {};
         if (profile.email) accountEmail = profile.email;
       } catch (e) {
-        console.debug('Could not fetch profile email for linkGoogleAccount:', e);
       }
     }
 
@@ -300,13 +338,13 @@ class AuthManager {
           '').trim();
 
       if (!googleEmail) {
-        try { await currentUser.unlink('google.com'); } catch (e) { console.debug('unlink cleanup failed:', e); }
+        try { await currentUser.unlink('google.com'); } catch (e) { }
         this.game.showToast('Could not read Google account email. Please try again.', 'error');
         return;
       }
 
       if (googleEmail.toLowerCase() !== accountEmail.toLowerCase()) {
-        try { await currentUser.unlink('google.com'); } catch (e) { console.debug('unlink cleanup failed:', e); }
+        try { await currentUser.unlink('google.com'); } catch (e) { }
         this.game.showToast(`Google email must match your account email (${accountEmail}).`, 'error');
         return;
       }
@@ -442,7 +480,6 @@ class AuthManager {
           : `We found multiple usernames for that email: ${list}`
       );
     } catch (error) {
-      console.debug('recoverUsernameFromEmail error:', error);
       this._setRecoveryStatus(status, 'error', 'Unable to look up that email right now. Please try again.');
     } finally {
       this.game.setButtonBusy(button, false);
@@ -492,7 +529,6 @@ class AuthManager {
 
       this._setRecoveryStatus(status, 'success', `Email on file: ${this.maskEmail(record.email)}`);
     } catch (error) {
-      console.debug('recoverEmailFromUsername error:', error);
       this._setRecoveryStatus(status, 'error', 'Unable to look up that username right now. Please try again.');
     } finally {
       this.game.setButtonBusy(button, false);
@@ -520,7 +556,6 @@ class AuthManager {
       await this.auth.sendPasswordResetEmail(email);
       this._setRecoveryStatus(status, 'success', 'Password reset email sent if account exist in our system! Check your inbox (and spam folder).');
     } catch (error) {
-      console.debug('sendRecoveryPasswordEmail error:', error);
       let message = 'Unable to send a reset email right now.';
       switch (error.code) {
         case 'auth/invalid-email':
@@ -654,27 +689,7 @@ class AuthManager {
   }
 
   startChangeUsername() {
-    const user = this.auth.currentUser;
-    if (!user) {
-      this.game.showToast('Please log in first', 'error');
-      this.game.showSection('authSection');
-      return;
-    }
-
-    const current = this.game.usernameGlobal || '';
-    const input = prompt('Enter new username (3–20 chars: letters, numbers, _ . - and spaces):', current);
-    if (input == null) return;
-
-    const proposed = input.trim();
-    if (!/^[a-zA-Z0-9_.\- ]{3,20}$/.test(proposed)) {
-      this.game.showToast('Invalid username format', 'error');
-      return;
-    }
-
-    this.changeUsername(proposed).catch(err => {
-      console.debug('Change username error:', err);
-      this.game.showToast('Failed to change username', 'error');
-    });
+    this.openChangeUsernameModal();
   }
 
   async changeUsername(newVisibleUsername) {
@@ -892,7 +907,6 @@ class AuthManager {
       await this.changeUsername(proposed);
       this.closeChangeUsernameModal();
     } catch (e) {
-      console.debug('submitChangeUsernameModal error:', e);
       err.textContent = 'Failed to change username. Please try again.';
       err.classList.remove('hidden');
     } finally {
@@ -1081,7 +1095,6 @@ class AuthManager {
       this.game.showToast('Password updated', 'success');
       this.closeChangePasswordModal();
     } catch (e) {
-      console.debug('Change password error:', e);
       if (e && e.code === 'auth/wrong-password') {
         err.textContent = 'Current password is incorrect';
       } else if (e && e.code === 'auth/weak-password') {
@@ -1096,6 +1109,8 @@ class AuthManager {
   }
 
   async handleUserLogin(user) {
+    this._preserveLoginFields = null;
+
     const userRef = this.db.ref('users/' + user.uid);
     let snap = await userRef.once('value');
 
@@ -1144,7 +1159,6 @@ class AuthManager {
     this._wasLoggedIn = true;
   }
 
-
   handleUserLogout() {
     this.game.usernameGlobal = null;
     document.getElementById('userInfo').classList.add('hidden');
@@ -1170,23 +1184,68 @@ class AuthManager {
     const regPassword = document.getElementById('regPassword');
     const preserveRegister = this._preserveRegisterFields;
     const shouldPreserveRegister = !!preserveRegister;
+    const preserveLogin = this._preserveLoginFields;
+    const shouldPreserveLogin = !!preserveLogin;
+    const registerForm = document.getElementById('registerForm');
+    const isRegisterFormVisible = registerForm && !registerForm.classList.contains('hidden');
+    const loginForm = document.getElementById('loginForm');
+    const isLoginFormVisible = loginForm && !loginForm.classList.contains('hidden');
 
-    if (loginUsername) loginUsername.value = '';
-    if (loginPassword) loginPassword.value = '';
-    if (regUsername) regUsername.value = shouldPreserveRegister ? (preserveRegister.username || '') : '';
-    if (regEmail) regEmail.value = shouldPreserveRegister ? (preserveRegister.email || '') : '';
-    if (regPassword) regPassword.value = shouldPreserveRegister ? (preserveRegister.password || '') : '';
+    if (loginUsername) {
+      if (shouldPreserveLogin) {
+        loginUsername.value = preserveLogin.username || '';
+      } else if (!isLoginFormVisible) {
+        loginUsername.value = '';
+      }
+    }
+    if (loginPassword) {
+      if (!shouldPreserveLogin) {
+        loginPassword.value = '';
+      }
+    }
 
-    if (shouldPreserveRegister) {
-      ['loginUsername', 'loginPassword'].forEach(id => this.clearFieldError(id));
-    } else {
-      this.clearAuthErrors();
+    if (regUsername) {
+      if (shouldPreserveRegister) {
+        regUsername.value = preserveRegister.username || '';
+      } else if (!isRegisterFormVisible) {
+        regUsername.value = '';
+      }
+    }
+    if (regEmail) {
+      if (shouldPreserveRegister) {
+        regEmail.value = preserveRegister.email || '';
+      } else if (!isRegisterFormVisible) {
+        regEmail.value = '';
+      }
+    }
+    if (regPassword) {
+      if (shouldPreserveRegister) {
+        regPassword.value = preserveRegister.password || '';
+      } else if (!isRegisterFormVisible) {
+        regPassword.value = '';
+      }
     }
 
     if (shouldPreserveRegister) {
+      ['loginUsername', 'loginPassword'].forEach(id => this.clearFieldError(id));
       const usernameField = document.getElementById('regUsername');
       if (usernameField) usernameField.focus();
-      this._preserveRegisterFields = null;
+      setTimeout(() => {
+        if (this._preserveRegisterFields === preserveRegister) {
+          this._preserveRegisterFields = null;
+        }
+      }, 1000);
+    } else if (shouldPreserveLogin) {
+      ['loginUsername', 'loginPassword'].forEach(id => this.clearFieldError(id));
+      const loginUsernameField = document.getElementById('loginUsername');
+      if (loginUsernameField) loginUsernameField.focus();
+      setTimeout(() => {
+        if (this._preserveLoginFields === preserveLogin) {
+          this._preserveLoginFields = null;
+        }
+      }, 1000);
+    } else {
+      this.clearAuthErrors();
     }
 
     if (this._suppressNextLogoutToast) {
@@ -1321,7 +1380,6 @@ class AuthManager {
 
       await this.auth.signInWithEmailAndPassword(emailToUse, password);
     } catch (error) {
-      console.debug('Login error:', error);
       this.handleAuthError(error);
     } finally {
       if (loginButton) this.game.setButtonBusy(loginButton, false);
@@ -1385,7 +1443,6 @@ class AuthManager {
       this._blockAutoLogin = true;
       cred = await this.auth.createUserWithEmailAndPassword(email, password);
     } catch (error) {
-      console.debug('User creation error:', error);
       this.handleAuthError(error);
       return;
     }
@@ -1413,15 +1470,19 @@ class AuthManager {
       });
 
       this._suppressNextLogoutToast = true;
+      this._preserveLoginFields = { username: email };
       try { await this.auth.signOut(); } catch { }
 
       this.showLogin();
-      const loginUserField = document.getElementById('loginUsername');
-      if (loginUserField) loginUserField.value = email;
+      setTimeout(() => {
+        const loginUserField = document.getElementById('loginUsername');
+        if (loginUserField && (!loginUserField.value || loginUserField.value !== email)) {
+          loginUserField.value = email;
+        }
+      }, 100);
       this.game.showToast('Account created. Please sign in to continue.', 'info');
 
     } catch (error) {
-      console.debug('Registration error:', error);
       if (error.code === 'PERMISSION_DENIED') {
         this._preserveRegisterFields = { username, email, password };
         this.setFieldError('regUsername', 'Username was just taken. Pick another.');
@@ -1478,7 +1539,6 @@ class AuthManager {
     try {
       await this.auth.signOut();
     } catch (error) {
-      console.debug('Logout error:', error);
       this.game.showToast('Logout failed', 'error');
     }
   }
