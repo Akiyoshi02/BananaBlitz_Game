@@ -394,7 +394,6 @@ class LeaderboardManager {
         await this.loadLeaderboard();
         await this.loadDailyLeaderboard();
       } catch (e) {
-        console.debug('Retry load leaderboard after auth failed:', e);
       }
     }
   }

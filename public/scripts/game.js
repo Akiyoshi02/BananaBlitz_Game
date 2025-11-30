@@ -214,7 +214,6 @@ class BananaBlitzGame {
       if (!this.auth || !this.db) {
         throw new Error('Missing shared Firebase instances');
       }
-      console.log('Firebase services (Auth + Realtime DB) ready');
     } catch (error) {
       console.error('Firebase services unavailable, enabling mock services:', error);
       this.createMockFirebaseServices();
@@ -267,23 +266,19 @@ class BananaBlitzGame {
     this.db = {
       ref: (path) => ({
         set: (data) => {
-          console.log('Mock DB: Setting data', path, data);
           localStorage.setItem(`mock_db_${path}`, JSON.stringify(data));
           return Promise.resolve();
         },
         update: (data) => {
-          console.log('Mock DB: Updating data', path, data);
           const existing = JSON.parse(localStorage.getItem(`mock_db_${path}`) || '{}');
           localStorage.setItem(`mock_db_${path}`, JSON.stringify({ ...existing, ...data }));
           return Promise.resolve();
         },
         remove: () => {
-          console.log('Mock DB: Removing data', path);
           localStorage.removeItem(`mock_db_${path}`);
           return Promise.resolve();
         },
         on: (event, callback) => {
-          console.log('Mock DB: Listening to', event, 'on', path);
           if (event === 'value') {
             const data = JSON.parse(localStorage.getItem(`mock_db_${path}`) || 'null');
             setTimeout(() => callback({ val: () => data }), 100);
@@ -291,7 +286,6 @@ class BananaBlitzGame {
           return () => { };
         },
         once: (event) => {
-          console.log('Mock DB: Once listening to', event, 'on', path);
           const data = JSON.parse(localStorage.getItem(`mock_db_${path}`) || 'null');
           return Promise.resolve({ val: () => data });
         },
@@ -319,7 +313,7 @@ class BananaBlitzGame {
   }
 
   initScreensaver() {
-    const INACTIVITY_TIMEOUT = 6000;
+    const INACTIVITY_TIMEOUT = 12000;
     const screensaver = document.getElementById('screensaver');
     const messageEl = document.getElementById('screensaverMessage');
     const bananaContainer = document.getElementById('screensaverBananas');
@@ -433,7 +427,6 @@ class BananaBlitzGame {
 
     let currentMessageIndex = 0;
     let messageRotationInterval = null;
-    let bananaAnimationInterval = null;
     let inactivityTimer = null;
     let isScreensaverActive = false;
     const applySkyTheme = () => {
@@ -444,12 +437,6 @@ class BananaBlitzGame {
       skyContainer.classList.remove(...SKY_THEME_CLASSES);
 
       skyContainer.classList.add(`sky-theme-${period}`);
-
-      const currentSkin = this.currentSkin || '';
-      skyContainer.classList.remove('skin-jungle', 'skin-neon', 'skin-mono');
-      if (currentSkin) {
-        skyContainer.classList.add(currentSkin);
-      }
 
       const uniqueElements = ['sky-glow', 'sky-moon-ring', 'sky-sun-rays'];
       const repeatingElements = theme.elements.filter(cls => {
@@ -506,65 +493,26 @@ class BananaBlitzGame {
       applySkyTheme();
     };
 
-    const createFloatingBanana = () => {
-      if (!bananaContainer || !isScreensaverActive) return;
-
-      const banana = document.createElement('img');
-      banana.src = 'assets/images/banana.png';
-      banana.alt = 'banana';
-      banana.className = 'absolute pointer-events-none';
-
-      const size = Math.random() * 30 + 20;
-      banana.style.width = size + 'px';
-      banana.style.height = 'auto';
-      banana.style.left = Math.random() * 100 + '%';
-      banana.style.top = '100%';
-      banana.style.opacity = Math.random() * 0.5 + 0.3;
-      banana.style.transform = `rotate(${Math.random() * 360}deg)`;
-      banana.style.filter = `drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2))`;
-
-      const duration = Math.random() * 4 + 5;
-      const rotationSpeed = Math.random() * 720 + 360;
-      banana.style.transition = `transform ${duration}s cubic-bezier(0.4, 0, 0.2, 1), opacity ${duration}s ease-out, filter ${duration}s ease-out`;
-
-      bananaContainer.appendChild(banana);
-
-      requestAnimationFrame(() => {
-        const endY = Math.random() * -60 - 30;
-        const endX = (Math.random() - 0.5) * 150;
-        const scale = Math.random() * 0.3 + 0.7;
-        banana.style.transform = `translate(${endX}px, ${endY}vh) rotate(${rotationSpeed}deg) scale(${scale})`;
-        banana.style.opacity = '0';
-        banana.style.filter = `drop-shadow(0 8px 16px rgba(0, 0, 0, 0.3))`;
-      });
-
-      setTimeout(() => {
-        if (banana.parentNode) {
-          banana.remove();
-        }
-      }, duration * 1000);
-    };
 
     const rotateMessage = () => {
       if (!messageEl || !isScreensaverActive) return;
       currentMessageIndex = (currentMessageIndex + 1) % funnyMessages.length;
       messageEl.style.opacity = '0';
+      messageEl.style.transform = 'translateY(-10px)';
       setTimeout(() => {
         messageEl.textContent = funnyMessages[currentMessageIndex];
-        messageEl.style.opacity = '1';
-      }, 12000);
+        messageEl.style.transform = 'translateY(10px)';
+        requestAnimationFrame(() => {
+          messageEl.style.opacity = '1';
+          messageEl.style.transform = 'translateY(0)';
+        });
+      }, 400);
     };
 
     const showScreensaver = () => {
       if (isScreensaverActive || document.hidden) return;
 
       isScreensaverActive = true;
-
-      const currentSkin = this.currentSkin || '';
-      screensaver.classList.remove('skin-jungle', 'skin-neon', 'skin-mono');
-      if (currentSkin) {
-        screensaver.classList.add(currentSkin);
-      }
 
       refreshFunnyMessages();
 
@@ -583,9 +531,6 @@ class BananaBlitzGame {
       }
 
       messageRotationInterval = setInterval(rotateMessage, 4000);
-
-      bananaAnimationInterval = setInterval(createFloatingBanana, 1500);
-      createFloatingBanana();
     };
 
     const hideScreensaver = () => {
@@ -598,10 +543,6 @@ class BananaBlitzGame {
       if (messageRotationInterval) {
         clearInterval(messageRotationInterval);
         messageRotationInterval = null;
-      }
-      if (bananaAnimationInterval) {
-        clearInterval(bananaAnimationInterval);
-        bananaAnimationInterval = null;
       }
 
       if (bananaContainer) {
@@ -735,7 +676,10 @@ class BananaBlitzGame {
     document.getElementById('musicToggle')?.addEventListener('change', () => this.toggleMusic());
     document.getElementById('darkToggle')?.addEventListener('change', (e) => {
       this.setTheme(e.target.checked);
-      this.claimAchievement('TOGGLE_THEME');
+      const user = this.auth?.currentUser;
+      if (user && !user.isAnonymous) {
+        this.claimAchievement('TOGGLE_THEME');
+      }
     });
     document.getElementById('hcToggle')?.addEventListener('change', () => this.toggleHighContrast());
     document.getElementById('largeToggle')?.addEventListener('change', () => this.toggleLargeText());
@@ -894,6 +838,8 @@ class BananaBlitzGame {
     const musicToggle = document.getElementById('musicToggle');
     if (musicToggle) musicToggle.checked = this.musicEnabled;
 
+    this._updateMuteIcon();
+
     const darkToggle = document.getElementById('darkToggle');
     if (darkToggle) darkToggle.checked = (localStorage.getItem('themeMode') === 'dark');
 
@@ -929,17 +875,58 @@ class BananaBlitzGame {
       'assets/audio/music/music-neon nights.mp3'
     ];
     let loaded = 0;
+    let wasHidden = false;
+    let hiddenStartTime = null;
+    let forceCompleteTimeout = null;
+
     const updateLoader = () => {
       const percent = Math.round((loaded / assets.length) * 100);
-      document.getElementById('loaderText').textContent = `Peeling bananas… ${percent}%`;
-      document.getElementById('loaderBar').style.width = `${percent}%`;
+      const loaderText = document.getElementById('loaderText');
+      const loaderBar = document.getElementById('loaderBar');
+      if (loaderText) loaderText.textContent = `Peeling bananas… ${percent}%`;
+      if (loaderBar) loaderBar.style.width = `${percent}%`;
     };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        wasHidden = true;
+        hiddenStartTime = Date.now();
+      } else if (wasHidden && hiddenStartTime) {
+        const hiddenDuration = Date.now() - hiddenStartTime;
+        this.loaderStart += hiddenDuration;
+        wasHidden = false;
+        hiddenStartTime = null;
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    const forceComplete = () => {
+      if (loaded < assets.length) {
+        loaded = assets.length;
+        updateLoader();
+      }
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (forceCompleteTimeout) clearTimeout(forceCompleteTimeout);
+      this.completeLoader();
+    };
+
+    forceCompleteTimeout = setTimeout(forceComplete, 10000);
+
     updateLoader();
+
     const promises = assets.map(url => {
       return new Promise(resolve => {
+        const assetTimeout = setTimeout(() => {
+          loaded++;
+          updateLoader();
+          resolve();
+        }, 3000);
+
         if (/\.(png|jpe?g|gif)$/i.test(url)) {
           const img = new Image();
           img.onload = img.onerror = () => {
+            clearTimeout(assetTimeout);
             loaded++;
             updateLoader();
             resolve();
@@ -948,6 +935,7 @@ class BananaBlitzGame {
         } else if (/\.(mp3|wav|ogg)$/i.test(url)) {
           const audio = new Audio();
           const finish = () => {
+            clearTimeout(assetTimeout);
             audio.oncanplaythrough = audio.onerror = null;
             loaded++;
             updateLoader();
@@ -959,6 +947,7 @@ class BananaBlitzGame {
           try { audio.load(); } catch { finish(); }
         } else {
           fetch(url).finally(() => {
+            clearTimeout(assetTimeout);
             loaded++;
             updateLoader();
             resolve();
@@ -966,10 +955,23 @@ class BananaBlitzGame {
         }
       });
     });
+
     await Promise.all(promises);
+
+    if (forceCompleteTimeout) {
+      clearTimeout(forceCompleteTimeout);
+      forceCompleteTimeout = null;
+    }
+
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+    this.completeLoader();
+  }
+
+  completeLoader() {
     const elapsed = performance.now() - this.loaderStart;
     const wait = Math.max(0, this.LOADER_MIN_MS - elapsed);
-    setTimeout(() => {
+
+    const proceed = () => {
       const loaderText = document.getElementById('loaderText');
       if (loaderText) loaderText.textContent = 'Verifying session...';
       this._setupAutoMusicGestureOnce();
@@ -981,7 +983,19 @@ class BananaBlitzGame {
           setTimeout(() => this.showTutorial(30), 400);
         }
       });
-    }, wait);
+    };
+
+    if (document.hidden) {
+      setTimeout(proceed, wait);
+    } else {
+      if (wait > 0) {
+        setTimeout(() => {
+          requestAnimationFrame(proceed);
+        }, wait);
+      } else {
+        requestAnimationFrame(proceed);
+      }
+    }
   }
 
   async _tryStartBgm() {
@@ -1027,6 +1041,8 @@ class BananaBlitzGame {
       this._bgmIsPlaying = false;
       this.showToast('🔇 Background Music OFF');
     }
+
+    this._updateMuteIcon();
   }
 
   safeStartMusic() {
@@ -1038,6 +1054,21 @@ class BananaBlitzGame {
     const toast = document.getElementById('toast');
     const toastIcon = document.getElementById('toastIcon');
     const toastMessage = document.getElementById('toastMessage');
+    if (!toast || !toastIcon || !toastMessage) return;
+
+    if (toastMessage.innerHTML && toastMessage.innerHTML.includes('<button')) {
+      return;
+    }
+
+    if (this._resetToastTimeout) {
+      return;
+    }
+
+    if (this._toastTimeout) {
+      clearTimeout(this._toastTimeout);
+      this._toastTimeout = null;
+    }
+
     switch (type) {
       case 'success': toastIcon.textContent = '✅'; break;
       case 'error': toastIcon.textContent = '❌'; break;
@@ -1047,9 +1078,10 @@ class BananaBlitzGame {
     toastMessage.textContent = message;
     toast.classList.remove('opacity-0', 'pointer-events-none');
     toast.classList.add('opacity-100');
-    setTimeout(() => {
+    this._toastTimeout = setTimeout(() => {
       toast.classList.remove('opacity-100');
       toast.classList.add('opacity-0', 'pointer-events-none');
+      this._toastTimeout = null;
     }, duration);
   }
 
@@ -1106,6 +1138,60 @@ class BananaBlitzGame {
     );
 
     this.playSound('click');
+    this._updateMuteIcon();
+  }
+
+  _updateMuteIcon() {
+    const bothEnabled = this.soundEnabled && this.musicEnabled;
+    const icon = bothEnabled ? '🔊' : '🔇';
+    const muteIcon = document.getElementById('muteIcon');
+    if (muteIcon) muteIcon.textContent = icon;
+    const mobileMuteIcon = document.getElementById('mobileMuteIcon');
+    if (mobileMuteIcon) mobileMuteIcon.textContent = icon;
+  }
+
+  toggleMute() {
+    const bothEnabled = this.soundEnabled && this.musicEnabled;
+
+    if (bothEnabled) {
+      this.soundEnabled = false;
+      this.musicEnabled = false;
+      localStorage.setItem('soundEnabled', 'false');
+      localStorage.setItem('musicEnabled', 'false');
+
+      const soundToggle = document.getElementById('soundToggle');
+      if (soundToggle) soundToggle.checked = false;
+      const musicToggle = document.getElementById('musicToggle');
+      if (musicToggle) musicToggle.checked = false;
+
+      const bgm = this.sounds?.bgm;
+      if (bgm) bgm.pause();
+      this._bgmIsPlaying = false;
+
+      this._updateMuteIcon();
+      this.showToast('🔇 All sounds muted', 'warning');
+    } else {
+      this.soundEnabled = true;
+      this.musicEnabled = true;
+      localStorage.setItem('soundEnabled', 'true');
+      localStorage.setItem('musicEnabled', 'true');
+
+      const soundToggle = document.getElementById('soundToggle');
+      if (soundToggle) soundToggle.checked = true;
+      const musicToggle = document.getElementById('musicToggle');
+      if (musicToggle) musicToggle.checked = true;
+
+      if (this.musicEnabled) {
+        this._tryStartBgm();
+      }
+
+      this._updateMuteIcon();
+      this.showToast('🔊 All sounds unmuted', 'success');
+    }
+
+    if (this.soundEnabled) {
+      this.playSound('click');
+    }
   }
 
   isDarkMode() {
@@ -1127,9 +1213,21 @@ class BananaBlitzGame {
   }
 
   toggleTheme() {
-    this.setTheme(!this.isDarkMode());
+    const wasDark = this.isDarkMode();
+    this.setTheme(!wasDark);
     this.playSound('click');
-    this.claimAchievement('TOGGLE_THEME');
+
+    const isDark = this.isDarkMode();
+    if (isDark) {
+      this.showToast('🌙 Dark mode enabled', 'success');
+    } else {
+      this.showToast('🌞 Light mode enabled', 'success');
+    }
+
+    const user = this.auth?.currentUser;
+    if (user && !user.isAnonymous) {
+      this.claimAchievement('TOGGLE_THEME');
+    }
   }
 
   toggleHighContrast() {
@@ -1213,9 +1311,9 @@ class BananaBlitzGame {
     const section = document.getElementById(sectionId);
     if (section) section.classList.remove('hidden');
 
-    const showTheme = sectionId === 'authSection' || sectionId === 'gameSection' ||
-      sectionId === 'dailySection' || sectionId === 'multiplayerSection';
-    document.getElementById('themeToggle').classList.toggle('hidden', !showTheme);
+    const showFloatingControls = sectionId !== 'menuSection' && sectionId !== 'settingsSection';
+    const floatingControls = document.getElementById('floatingControls');
+    if (floatingControls) floatingControls.classList.toggle('hidden', !showFloatingControls);
 
     if (sectionId !== 'multiplayerLobbySection') {
       const multiplayerLobbySection = document.getElementById('multiplayerLobbySection');
@@ -1589,9 +1687,7 @@ class BananaBlitzGame {
     if (pauseBtn) pauseBtn.textContent = '⏸️ Pause';
 
     try {
-      console.log('🌐 Fetching puzzle from API...');
       const puzzleData = await this.fetchBananaPuzzle();
-      console.log('✅ Puzzle fetched:', puzzleData.answer);
       if (puzzleData.imageUrl && puzzleData.answer !== undefined) {
         this.currentPuzzleAnswer = puzzleData.answer;
         const img = document.getElementById('puzzleImage');
@@ -1892,7 +1988,6 @@ class BananaBlitzGame {
       this.triggerCelebration({ difficultyNotice });
 
     } else {
-      console.log('❌ WRONG ANSWER! Will load next puzzle after 1200ms delay');
       document.getElementById('result').textContent = `Incorrect. The answer was ${this.currentPuzzleAnswer}.`;
       this.playSound('wrong');
       this.showScorePopup('Life -1', '#d32f2f');
@@ -1912,7 +2007,6 @@ class BananaBlitzGame {
       this.clearGameTimer();
       clearTimeout(this._nextPuzzleTimeout);
       this._nextPuzzleTimeout = setTimeout(() => {
-        console.log('❌ Wrong answer timeout - loading next puzzle after 1200ms');
         const stillInGame = document.getElementById('gameSection');
         if (stillInGame && !stillInGame.classList.contains('hidden') && this.gameMode === 'classic') {
           this.loadPuzzle();
@@ -2540,7 +2634,7 @@ class BananaBlitzGame {
 
   async claimAchievement(code) {
     const user = this.auth.currentUser;
-    if (!user) return;
+    if (!user || user.isAnonymous) return;
     const meta = this.ACH[code];
     if (!meta) return;
     try {
@@ -2560,30 +2654,6 @@ class BananaBlitzGame {
   }
 
   initCelebrations() {
-    const GIPHY_API_KEY = window.GIPHY_API_KEY || window.MultiplayerManager?.GIPHY_API_KEY || '';
-    if (!GIPHY_API_KEY) {
-      console.warn('GIPHY API key not configured. Using fallback celebration image.');
-      this._celebrationImages = ['https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif'];
-      this._shuffleCelebrationImages();
-      this._cacheCelebrationImages();
-      return;
-    }
-    this._celebrationImages = [];
-    fetch(`https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&q=celebration&limit=30&rating=pg`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.data && data.data.length) {
-          this._celebrationImages = data.data.map(gif => gif.images.original.url);
-        }
-        this._shuffleCelebrationImages();
-        this._cacheCelebrationImages();
-      })
-      .catch(() => {
-        this._celebrationImages = ['https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif'];
-        this._shuffleCelebrationImages();
-        this._cacheCelebrationImages();
-      });
-
     this._shuffleCelebrationImages = function () {
       this._celebrationQueue = this._celebrationImages.slice();
       for (let i = this._celebrationQueue.length - 1; i > 0; i--) {
@@ -2591,27 +2661,97 @@ class BananaBlitzGame {
         [this._celebrationQueue[i], this._celebrationQueue[j]] = [this._celebrationQueue[j], this._celebrationQueue[i]];
       }
     };
-    this._cacheCelebrationImages = function () {
-      this._celebrationCache = new Map();
-      this._celebrationQueue.forEach(url => {
+
+    const GIPHY_API_KEY = window.GIPHY_API_KEY || window.MultiplayerManager?.GIPHY_API_KEY || '';
+    if (!GIPHY_API_KEY) {
+      console.warn('GIPHY API key not configured. Using fallback celebration image.');
+      this._celebrationImages = ['https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif'];
+      this._shuffleCelebrationImages();
+      this._cacheCelebrationImagesBatch(0, 1);
+      return;
+    }
+
+    this._celebrationImages = [];
+    this._celebrationQueue = [];
+    this._celebrationCache = new Map();
+    this._celebrationLoadingState = {
+      initialBatchLoaded: false,
+      progressiveLoadingActive: false,
+      batchSize: 8
+    };
+
+    fetch(`https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&q=celebration&limit=30&rating=pg`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.data && data.data.length) {
+          this._celebrationImages = data.data.map(gif => gif.images.original.url);
+          this._shuffleCelebrationImages();
+          
+          this._cacheCelebrationImagesBatch(0, this._celebrationLoadingState.batchSize);
+          this._celebrationLoadingState.initialBatchLoaded = true;
+          
+          setTimeout(() => {
+            this._startProgressiveCelebrationLoading();
+          }, 3000);
+        } else {
+          this._celebrationImages = ['https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif'];
+          this._shuffleCelebrationImages();
+          this._cacheCelebrationImagesBatch(0, 1);
+        }
+      })
+      .catch(() => {
+        this._celebrationImages = ['https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif'];
+        this._shuffleCelebrationImages();
+        this._cacheCelebrationImagesBatch(0, 1);
+      });
+
+    this._celebrationQueue = [];
+    this._celebrationCache = new Map();
+  }
+
+  _cacheCelebrationImagesBatch(startIndex, count) {
+    if (!this._celebrationQueue || this._celebrationQueue.length === 0) return;
+    
+    const endIndex = Math.min(startIndex + count, this._celebrationQueue.length);
+    for (let i = startIndex; i < endIndex; i++) {
+      const url = this._celebrationQueue[i];
+      if (!this._celebrationCache.has(url)) {
         const img = new Image();
         img.src = url;
         this._celebrationCache.set(url, img);
-      });
+      }
+    }
+  }
+
+  _startProgressiveCelebrationLoading() {
+    if (!this._celebrationLoadingState) return;
+    if (this._celebrationLoadingState.progressiveLoadingActive) return;
+    if (!this._celebrationImages || this._celebrationImages.length === 0) return;
+    if (!this._celebrationLoadingState.initialBatchLoaded) return;
+
+    this._celebrationLoadingState.progressiveLoadingActive = true;
+    const batchSize = 5;
+    const startIndex = this._celebrationLoadingState.batchSize;
+    
+    let currentIndex = startIndex;
+
+    const loadNextBatch = () => {
+      if (currentIndex >= this._celebrationQueue.length) {
+        this._celebrationLoadingState.progressiveLoadingActive = false;
+        return;
+      }
+
+      this._cacheCelebrationImagesBatch(currentIndex, batchSize);
+      currentIndex += batchSize;
+
+      if (currentIndex < this._celebrationQueue.length) {
+        setTimeout(loadNextBatch, 2000);
+      } else {
+        this._celebrationLoadingState.progressiveLoadingActive = false;
+      }
     };
 
-    this._celebrationQueue = this._celebrationImages.slice();
-    for (let i = this._celebrationQueue.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [this._celebrationQueue[i], this._celebrationQueue[j]] = [this._celebrationQueue[j], this._celebrationQueue[i]];
-    }
-
-    this._celebrationCache = new Map();
-    this._celebrationQueue.forEach(url => {
-      const img = new Image();
-      img.src = url;
-      this._celebrationCache.set(url, img);
-    });
+    setTimeout(loadNextBatch, 1000);
   }
 
   _getNextCelebrationUrl() {
@@ -2644,7 +2784,12 @@ class BananaBlitzGame {
 
       const ok = await new Promise(res => {
         const probe = new Image();
-        probe.onload = () => res(true);
+        probe.onload = () => {
+          if (this._celebrationCache && !this._celebrationCache.has(candidate)) {
+            this._celebrationCache.set(candidate, probe);
+          }
+          res(true);
+        };
         probe.onerror = () => res(false);
         probe.src = candidate;
       });
@@ -2652,6 +2797,15 @@ class BananaBlitzGame {
         chosen = candidate;
         break;
       }
+    }
+
+    if (this._celebrationQueue && this._celebrationQueue.length > 0 && this._celebrationCache) {
+      const nextUrls = this._celebrationQueue.slice(0, 3).filter(url => !this._celebrationCache.has(url));
+      nextUrls.forEach(url => {
+        const img = new Image();
+        img.src = url;
+        this._celebrationCache.set(url, img);
+      });
     }
 
     imgEl.src = chosen || 'assets/images/logo.png';
@@ -2670,7 +2824,6 @@ class BananaBlitzGame {
     if (autoHideMs && wrap) {
       clearTimeout(this._celebrationHideT);
       this._celebrationHideT = setTimeout(() => {
-        console.log('🎉 Celebration auto-hiding after', autoHideMs, 'ms - loading next puzzle');
         wrap.classList.add('hidden');
         if (this.gameMode === 'classic') {
           this.loadPuzzle();
@@ -2682,7 +2835,6 @@ class BananaBlitzGame {
   hideCelebration() {
 
     if (this._isHidingCelebration) {
-      console.log('⚠️ Already hiding celebration, ignoring duplicate call');
       return;
     }
     this._isHidingCelebration = true;
@@ -2778,6 +2930,11 @@ class BananaBlitzGame {
     const toastMessage = document.getElementById('toastMessage');
     if (!toast || !toastIcon || !toastMessage) return;
 
+    if (this._toastTimeout) {
+      clearTimeout(this._toastTimeout);
+      this._toastTimeout = null;
+    }
+
     toastIcon.textContent = '⚠️';
     toastMessage.innerHTML = `Are you sure you want to reset all local progress? <br><span class='text-xs opacity-80'>This cannot be undone.</span><br><button id='resetConfirmBtn' class='mt-2 bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded-xl transition-all shadow-md text-xs'>Reset</button> <button id='resetCancelBtn' class='mt-2 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-1 px-3 rounded-xl transition-all text-xs ml-2'>Cancel</button>`;
     toast.classList.remove('opacity-0', 'pointer-events-none');
@@ -2786,16 +2943,26 @@ class BananaBlitzGame {
     let toastTimeout = setTimeout(() => {
       toast.classList.remove('opacity-100');
       toast.classList.add('opacity-0', 'pointer-events-none');
-    }, 8000);
+      toastMessage.textContent = '';
+      if (this._resetToastTimeout === toastTimeout) {
+        this._resetToastTimeout = null;
+      }
+    }, 30000);
+
+    this._resetToastTimeout = toastTimeout;
 
     let resetBtn, cancelBtn;
 
     const cleanup = () => {
       clearTimeout(toastTimeout);
+      if (this._resetToastTimeout === toastTimeout) {
+        this._resetToastTimeout = null;
+      }
       toast.classList.remove('opacity-100');
       toast.classList.add('opacity-0', 'pointer-events-none');
       if (resetBtn) resetBtn.removeEventListener('click', onConfirm);
       if (cancelBtn) cancelBtn.removeEventListener('click', onCancel);
+      toastMessage.textContent = '';
     };
     const onConfirm = () => {
       localStorage.clear();
@@ -2814,52 +2981,94 @@ class BananaBlitzGame {
       this.musicEnabled = true;
       this.difficulty = 'normal';
       this.currentSkin = '';
+      this.sfxVolume = 40;
+      this.musicVolume = 45;
+
+      Object.values(this.sounds).forEach(snd => {
+        if (snd !== this.sounds.bgm) {
+          snd.volume = this.sfxVolume / 100;
+        }
+      });
+      if (this.sounds?.bgm) {
+        this.sounds.bgm.volume = Math.min(1, this.musicVolume / 100);
+      }
+
+      document.body.classList.remove('high-contrast', 'large-text', 'reduced-motion');
+
       const soundToggle = document.getElementById('soundToggle');
       if (soundToggle) soundToggle.checked = true;
       const musicToggle = document.getElementById('musicToggle');
       if (musicToggle) musicToggle.checked = true;
-      const diffSelect = document.getElementById('difficultySelect');
-      if (diffSelect) diffSelect.value = 'normal';
-      const skinSelect = document.getElementById('skinSelect');
-      if (skinSelect) skinSelect.value = '';
 
-      this.applySavedSettings();
-      this.changeSkin();
-      document.body.classList.remove('high-contrast', 'large-text', 'reduced-motion');
       const hcToggle = document.getElementById('hcToggle');
-      if (hcToggle) hc.checked = false;
       const largeToggle = document.getElementById('largeToggle');
-      if (largeToggle) largeToggle.checked = false;
       const rmToggle = document.getElementById('rmToggle');
-      if (rmToggle) rmToggle.checked = false;
-      const mobileThemeIcon = document.getElementById('mobileThemeIcon');
-      if (mobileThemeIcon) mobileThemeIcon.textContent = '🌞';
-      const mobileThemeToggle = document.getElementById('mobileThemeToggle');
-      if (mobileThemeToggle) mobileThemeToggle.setAttribute('data-theme', 'light');
+
+      if (hcToggle) {
+        hcToggle.checked = false;
+      }
+      if (largeToggle) {
+        largeToggle.checked = false;
+      }
+      if (rmToggle) {
+        rmToggle.checked = false;
+      }
+
+      localStorage.setItem('highContrast', 'false');
+      localStorage.setItem('largeText', 'false');
+      localStorage.setItem('reducedMotion', 'false');
+
       const sfx = document.getElementById('sfxVolume');
       const sfxLabel = document.getElementById('sfxVolumeValue');
-      let sfxValue = 40;
       if (sfx) {
         sfx.value = 40;
         sfx.disabled = false;
         sfx.removeAttribute('readonly');
-        sfxValue = 40;
-        if (sfxLabel) sfxLabel.textContent = '40%';
       }
-      this.sfxVolume = sfxValue;
-      Object.values(this.sounds).forEach(snd => { if (snd !== this.sounds.bgm) snd.volume = sfxValue / 100; });
+      if (sfxLabel) sfxLabel.textContent = '40%';
+
       const mv = document.getElementById('musicVolume');
       const mvLabel = document.getElementById('musicVolumeValue');
-      let musicValue = 45;
       if (mv) {
         mv.value = 45;
-        musicValue = 45;
-        if (mvLabel) mvLabel.textContent = '45%';
       }
-      this.musicVolume = musicValue;
-      if (this.sounds?.bgm) this.sounds.bgm.volume = Math.min(1, (musicValue || 0) / 100);
-      this.showToast('Local progress reset', 'success');
+      if (mvLabel) mvLabel.textContent = '45%';
+
+      const diffSelect = document.getElementById('difficultySelect');
+      if (diffSelect) diffSelect.value = 'normal';
+      const skinSelect = document.getElementById('skinSelect');
+      if (skinSelect) skinSelect.value = '';
+      const mobileThemeIcon = document.getElementById('mobileThemeIcon');
+      if (mobileThemeIcon) mobileThemeIcon.textContent = '🌞';
+      const mobileThemeToggle = document.getElementById('mobileThemeToggle');
+      if (mobileThemeToggle) mobileThemeToggle.setAttribute('data-theme', 'light');
+
+      this.applySavedSettings();
+
+      const hcToggleFinal = document.getElementById('hcToggle');
+      const largeToggleFinal = document.getElementById('largeToggle');
+      const rmToggleFinal = document.getElementById('rmToggle');
+      if (hcToggleFinal) {
+        hcToggleFinal.checked = false;
+      }
+      if (largeToggleFinal) {
+        largeToggleFinal.checked = false;
+      }
+      if (rmToggleFinal) {
+        rmToggleFinal.checked = false;
+      }
+      document.body.classList.remove('high-contrast', 'large-text', 'reduced-motion');
+      localStorage.setItem('highContrast', 'false');
+      localStorage.setItem('largeText', 'false');
+      localStorage.setItem('reducedMotion', 'false');
+
+      this.changeSkin();
+
       cleanup();
+
+      setTimeout(() => {
+        this.showToast('✅ All settings have been reset to default values', 'success', 4000);
+      }, 100);
     };
     const onCancel = () => {
       this.showToast('Reset cancelled', 'info');
@@ -2935,6 +3144,12 @@ class BananaBlitzGame {
 document.addEventListener('DOMContentLoaded', () => {
   window.game = new BananaBlitzGame();
 });
+
+window.toggleMute = () => {
+  if (window.game?.toggleMute) {
+    window.game.toggleMute();
+  }
+};
 
 window.toggleTheme = () => {
   if (window.game?.toggleTheme) {
