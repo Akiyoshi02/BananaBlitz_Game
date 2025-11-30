@@ -1,6 +1,6 @@
 # 🍌 Banana Blitz
 
-**Version 1.2.0 — Browser Puzzle & Realtime Multiplayer Game**
+**Version 1.2.0 - Browser Puzzle & Realtime Multiplayer Game**
 
 Banana Blitz is a single-page browser game built with HTML, CSS and vanilla JavaScript, backed by Firebase Authentication and Realtime Database. It fetches puzzles from the [Banana API](https://marcconrad.com/uob/banana/api.php) and falls back to an Unsplash banana image + generated count when the API is unavailable.
 
@@ -29,19 +29,6 @@ Players guess the number of bananas in each puzzle. Classic mode (lives + levels
 | 🎨 Customization | Four visual skins (default, jungle, neon, mono) with matching music tracks. Dark/light theme toggle. FontAwesome icon integration. |
 | 👥 Social | Friends system: send/accept/decline invites, remove friends, friends-only leaderboards. Matchmaking queue for quick multiplayer games. |
 | 💾 Persistence | `localStorage` for theme, volumes, difficulty, skin, tutorial-seen flag, and custom avatars; Realtime Database for scores, streaks, friends, and avatars. |
-
-### Core Firebase Paths
-- `users/{uid}` — profile + aggregate stats (includes `avatar`, `highestLevel`, `highestTier`, `bananaClickCount`)
-- `usernames/{key}` — unique mapping (normalized username → uid/email)
-- `gameSessions/{sessionId}` — per-session metadata
-- `multiplayerRooms/{code}` — live game room (host-controlled state + player subtrees + chat)
-- `multiplayerGames/{gameId}` — archived results
-- `matchmakingQueue/{uid}` — temporary queue entries for automatic matchmaking
-- `friends/{uid}/friends/{friendId}` — bidirectional friendship records
-- `friends/{uid}/friendInvites/{inviterId}` — pending friend invitations
-- `dailyPuzzles/{date}` — daily puzzle definitions
-- `userDaily/{uid}/{date}` — daily puzzle attempt record (write-once)
-- `userAchievements/{uid}/{code}` — achievement flags (write-once)
 
 ---
 
@@ -105,7 +92,6 @@ _Based on the time of the day, the screensaver theme will change depending on it
 2. **Configure API Keys** (Optional but recommended)
    - Copy `firebase/api-keys-config.example.js` to `firebase/api-keys-config.js`
    - Replace `YOUR_GIPHY_API_KEY_HERE` with your GIPHY API key from https://developers.giphy.com/
-   - Note: The example config includes a demo key, but you should use your own for production
 3. Open `index.html` directly in a browser OR serve with any static server.
 4. (Optional) Use Firebase Emulator Suite to test authentication and database rules locally.
 
