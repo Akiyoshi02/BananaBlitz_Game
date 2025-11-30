@@ -1,3 +1,6 @@
+<!-- Most of the Design for this game was designed by DeepSeek AI.
+Credit: DeepSeek AI for CSS design and contribution. -->
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -33,17 +36,17 @@
     <div id="falling-bananas"></div>
 
     <div id="screensaver"
-        class="fixed inset-0 flex flex-col items-center justify-center bg-yellow-50/80 dark:bg-gray-700/80 z-[9999] hidden opacity-0 transition-opacity duration-700 screensaver-container">
+        class="fixed inset-0 flex flex-col items-center justify-center bg-yellow-50/80 z-[9999] hidden opacity-0 transition-opacity duration-700 screensaver-container">
         <div id="screensaverBananas" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
         <div id="screensaverSky" class="screensaver-sky"></div>
         <div class="relative z-10 flex flex-col items-center">
             <img src="assets/images/monkey.png" alt="Monkey"
                 class="w-48 h-48 md:w-64 md:h-64 object-contain animate-bounce-slow mb-4 md:mb-6 screensaver-monkey" />
             <p id="screensaverMessage"
-                class="text-xl md:text-2xl font-semibold text-yellow-600 dark:text-yellow-400 animate-pulse-slow text-center px-4 screensaver-message">
+                class="text-xl md:text-2xl font-semibold text-yellow-600 animate-pulse-slow text-center px-4 screensaver-message">
                 The monkey got tired of counting bananas... 🍌
             </p>
-            <p class="text-sm md:text-base text-gray-600 dark:text-gray-400 mt-2 animate-pulse-slow text-center px-4">
+            <p class="text-sm md:text-base text-gray-600 mt-2 animate-pulse-slow text-center px-4">
                 Tap anywhere to wake them up!
             </p>
         </div>
@@ -492,6 +495,11 @@
             </div>
 
             <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-600 space-y-2">
+                <button id="mobileMuteToggle" data-stay-open onclick="toggleMute()"
+                    class="w-full flex items-center gap-3 p-4 rounded-xl bg-gray-100 dark:bg-gray-600">
+                    <span id="mobileMuteIcon" class="text-xl">🔊</span>
+                    <span class="font-medium text-gray-600 dark:text-gray-300">Mute All Sounds</span>
+                </button>
                 <button id="mobileThemeToggle" data-stay-open onclick="toggleTheme()"
                     class="w-full flex items-center gap-3 p-4 rounded-xl bg-gray-100 dark:bg-gray-600">
                     <span id="mobileThemeIcon" class="text-xl">🌞</span>
@@ -527,11 +535,6 @@
                         <span class="text-xl">☰</span>
                     </button>
                     <div id="desktopMenu" class="hidden md:flex items-center space-x-2 md:space-x-4">
-                        <button id="themeToggle" onclick="toggleTheme()"
-                            class="p-2 rounded-full bg-yellow-100 hover:bg-yellow-200 transition-colors dark:bg-gray-800 dark:hover:bg-gray-700"
-                            aria-label="Toggle theme">
-                            <span id="themeIcon" class="text-xl">🌞</span>
-                        </button>
                         <button id="helpBtn"
                             class="p-2 rounded-full bg-gray-200 dark:bg-gray-700 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600 transition flex items-center justify-center w-10 h-10"
                             onclick="showHelp()" aria-label="Open help tutorial"><span class="text-xl">❓</span></button>
@@ -983,7 +986,7 @@
                     <div class="flex flex-wrap gap-2 md:gap-4 mb-4 md:mb-6 mobile-flex-col">
                         <input type="number" id="guessInput" placeholder="Enter your answer" min="0" inputmode="numeric"
                             class="flex-1 px-3 md:px-4 py-2 md:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
-                        <button onclick="try { submitGuess(); } catch(e) { console.error(e); }"
+                        <button onclick="submitGuess()"
                             class="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white font-bold py-2 md:py-3 px-4 md:px-6 rounded-xl transition-all transform hover:scale-105 active:scale-95 shadow-md mobile-w-full">
                             Submit
                         </button>
@@ -2464,6 +2467,19 @@
                 </button>
             </div>
         </div>
+    </div>
+
+    <div id="floatingControls" class="fixed bottom-40 md:bottom-44 right-10 md:right-12 z-30 flex flex-col gap-2">
+        <button id="muteToggle" onclick="toggleMute()"
+            class="p-3 rounded-full bg-yellow-100 hover:bg-yellow-200 transition-colors dark:bg-gray-800 dark:hover:bg-gray-700 shadow-lg"
+            aria-label="Toggle mute">
+            <span id="muteIcon" class="text-xl">🔊</span>
+        </button>
+        <button id="themeToggle" onclick="toggleTheme()"
+            class="p-3 rounded-full bg-yellow-100 hover:bg-yellow-200 transition-colors dark:bg-gray-800 dark:hover:bg-gray-700 shadow-lg"
+            aria-label="Toggle theme">
+            <span id="themeIcon" class="text-xl">🌞</span>
+        </button>
     </div>
 
     <footer
