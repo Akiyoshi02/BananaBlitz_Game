@@ -313,7 +313,8 @@ class BananaBlitzGame {
   }
 
   initScreensaver() {
-    const INACTIVITY_TIMEOUT = 12000;
+    const INACTIVITY_TIMEOUT = 60000;
+    const MESSAGE_ROTATION_INTERVAL = 8000;
     const screensaver = document.getElementById('screensaver');
     const messageEl = document.getElementById('screensaverMessage');
     const bananaContainer = document.getElementById('screensaverBananas');
@@ -324,22 +325,22 @@ class BananaBlitzGame {
       morning: {
         caption: 'Sunrise yawns over Banana Grove',
         icon: '🌅',
-        elements: ['cloud cloud-1', 'cloud cloud-2', 'cloud cloud-3', 'cloud cloud-4', 'cloud cloud-5', 'cloud cloud-6', 'cloud cloud-7', 'sky-glow', 'sky-sun-rays', 'sparkle sparkle-1', 'sparkle sparkle-2', 'sparkle sparkle-3', 'sparkle sparkle-4']
+        elements: ['cloud cloud-1', 'cloud cloud-2', 'cloud cloud-3', 'cloud cloud-4', 'cloud cloud-5', 'cloud cloud-6', 'cloud cloud-7', 'sky-glow', 'sky-orb', 'sky-sun-rays', 'sparkle sparkle-1', 'sparkle sparkle-2', 'sparkle sparkle-3', 'sparkle sparkle-4']
       },
       afternoon: {
         caption: 'Lazy clouds guard the midday jungle',
         icon: '🌤️',
-        elements: ['cloud cloud-1', 'cloud cloud-2', 'cloud cloud-3', 'cloud cloud-4', 'cloud cloud-5', 'cloud cloud-6', 'cloud cloud-7', 'sky-glow', 'sparkle sparkle-1', 'sparkle sparkle-2', 'sparkle sparkle-3']
+        elements: ['cloud cloud-1', 'cloud cloud-2', 'cloud cloud-3', 'cloud cloud-4', 'cloud cloud-5', 'cloud cloud-6', 'cloud cloud-7', 'sky-glow', 'sky-orb', 'sparkle sparkle-1', 'sparkle sparkle-2', 'sparkle sparkle-3']
       },
       evening: {
         caption: 'Twilight whispers the monkeys to sleep',
         icon: '🌇',
-        elements: ['cloud cloud-1', 'cloud cloud-2', 'cloud cloud-3', 'cloud cloud-4', 'cloud cloud-5', 'cloud cloud-6', 'cloud cloud-7', 'sky-glow', 'sparkle sparkle-1', 'sparkle sparkle-2', 'sparkle sparkle-3', 'sparkle sparkle-4']
+        elements: ['cloud cloud-1', 'cloud cloud-2', 'cloud cloud-3', 'cloud cloud-4', 'cloud cloud-5', 'cloud cloud-6', 'cloud cloud-7', 'sky-glow', 'sky-orb', 'sparkle sparkle-1', 'sparkle sparkle-2', 'sparkle sparkle-3', 'sparkle sparkle-4']
       },
       night: {
         caption: 'Stars hush the bananas to dreamland',
         icon: '🌙',
-        elements: ['star star-1', 'star star-2', 'star star-3', 'star star-4', 'star star-5', 'star star-6', 'star star-7', 'star star-8', 'star star-9', 'star star-10', 'star star-11', 'star star-12', 'star star-13', 'star star-14', 'star star-15', 'sky-moon-ring', 'shooting-star shooting-star-1', 'shooting-star shooting-star-2', 'shooting-star shooting-star-3', 'sparkle sparkle-1', 'sparkle sparkle-2', 'sparkle sparkle-3', 'sparkle sparkle-4', 'sparkle sparkle-5']
+        elements: ['star star-1', 'star star-2', 'star star-3', 'star star-4', 'star star-5', 'star star-6', 'star star-7', 'star star-8', 'star star-9', 'star star-10', 'star star-11', 'star star-12', 'star star-13', 'star star-14', 'star star-15', 'sky-orb', 'sky-moon-ring', 'shooting-star shooting-star-1', 'shooting-star shooting-star-2', 'shooting-star shooting-star-3', 'sparkle sparkle-1', 'sparkle sparkle-2', 'sparkle sparkle-3', 'sparkle sparkle-4', 'sparkle sparkle-5']
       }
     };
     const SKY_THEME_CLASSES = ['sky-theme-morning', 'sky-theme-afternoon', 'sky-theme-evening', 'sky-theme-night'];
@@ -429,6 +430,11 @@ class BananaBlitzGame {
     let messageRotationInterval = null;
     let inactivityTimer = null;
     let isScreensaverActive = false;
+    const polishScreensaverText = (message) => message
+      .replace(/[^\x20-\x7E]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
     const applySkyTheme = () => {
       if (!skyContainer) return;
       const { period } = getTimeOfDayInfo();
@@ -438,7 +444,7 @@ class BananaBlitzGame {
 
       skyContainer.classList.add(`sky-theme-${period}`);
 
-      const uniqueElements = ['sky-glow', 'sky-moon-ring', 'sky-sun-rays'];
+      const uniqueElements = ['sky-glow', 'sky-orb', 'sky-moon-ring', 'sky-sun-rays'];
       const repeatingElements = theme.elements.filter(cls => {
         const isUnique = uniqueElements.some(unique => cls.includes(unique));
         const isSparkle = cls.includes('sparkle');
@@ -469,6 +475,8 @@ class BananaBlitzGame {
             return '<span class="sky-moon-ring"></span>';
           } else if (cls === 'sky-sun-rays') {
             return '<span class="sky-sun-rays"></span>';
+          } else if (cls === 'sky-orb') {
+            return '<span class="sky-orb"></span>';
           }
           return '';
         })
@@ -479,8 +487,13 @@ class BananaBlitzGame {
         ${decorativeElements}
         ${sparklesHTML}
         ${shootingStarsHTML}
-        <div class="sky-icon">${theme.icon}</div>
       `;
+
+      if (bananaContainer) {
+        bananaContainer.innerHTML = Array.from({ length: 7 }, (_, index) =>
+          `<span class="screensaver-banana banana-drift-${index + 1}"></span>`
+        ).join('');
+      }
     };
 
     const refreshFunnyMessages = () => {
@@ -488,7 +501,7 @@ class BananaBlitzGame {
       currentMessageIndex = 0;
       if (messageEl) {
         messageEl.style.opacity = '1';
-        messageEl.textContent = funnyMessages[0];
+        messageEl.textContent = polishScreensaverText(funnyMessages[0]);
       }
       applySkyTheme();
     };
@@ -500,7 +513,7 @@ class BananaBlitzGame {
       messageEl.style.opacity = '0';
       messageEl.style.transform = 'translateY(-10px)';
       setTimeout(() => {
-        messageEl.textContent = funnyMessages[currentMessageIndex];
+        messageEl.textContent = polishScreensaverText(funnyMessages[currentMessageIndex]);
         messageEl.style.transform = 'translateY(10px)';
         requestAnimationFrame(() => {
           messageEl.style.opacity = '1';
@@ -516,11 +529,9 @@ class BananaBlitzGame {
 
       refreshFunnyMessages();
 
+      document.body.classList.add('screensaver-active');
       screensaver.classList.remove('hidden');
-
-      requestAnimationFrame(() => {
-        screensaver.style.opacity = '1';
-      });
+      screensaver.style.opacity = '1';
 
       if (this.sounds && this.sounds.monkey && this.soundEnabled) {
         try {
@@ -530,7 +541,7 @@ class BananaBlitzGame {
         } catch (e) { }
       }
 
-      messageRotationInterval = setInterval(rotateMessage, 4000);
+      messageRotationInterval = setInterval(rotateMessage, MESSAGE_ROTATION_INTERVAL);
     };
 
     const hideScreensaver = () => {
@@ -538,7 +549,9 @@ class BananaBlitzGame {
 
       isScreensaverActive = false;
 
-      screensaver.style.opacity = '0';
+      document.body.classList.remove('screensaver-active');
+      screensaver.classList.add('hidden');
+      screensaver.style.opacity = '1';
 
       if (messageRotationInterval) {
         clearInterval(messageRotationInterval);
@@ -549,19 +562,18 @@ class BananaBlitzGame {
         bananaContainer.innerHTML = '';
       }
 
-      setTimeout(() => {
-        if (!isScreensaverActive) {
-          screensaver.classList.add('hidden');
-        }
-      }, 700);
     };
 
-    const resetInactivityTimer = () => {
+    const resetInactivityTimer = ({ wakeScreensaver = false } = {}) => {
       if (inactivityTimer) {
         clearTimeout(inactivityTimer);
       }
 
-      hideScreensaver();
+      if (wakeScreensaver) {
+        hideScreensaver();
+      } else if (isScreensaverActive) {
+        return;
+      }
 
       inactivityTimer = setTimeout(() => {
         if (!document.hidden && !isScreensaverActive) {
@@ -570,18 +582,25 @@ class BananaBlitzGame {
       }, INACTIVITY_TIMEOUT);
     };
 
-    const activities = [
-      'mousedown',
+    const idleActivities = [
       'mousemove',
       'keypress',
       'scroll',
+      'touchmove'
+    ];
+
+    const wakeActivities = [
+      'mousedown',
       'touchstart',
-      'touchmove',
       'click'
     ];
 
-    activities.forEach(activity => {
-      document.addEventListener(activity, resetInactivityTimer, { passive: true });
+    idleActivities.forEach(activity => {
+      document.addEventListener(activity, () => resetInactivityTimer(), { passive: true });
+    });
+
+    wakeActivities.forEach(activity => {
+      document.addEventListener(activity, () => resetInactivityTimer({ wakeScreensaver: true }), { passive: true });
     });
 
     document.addEventListener('visibilitychange', () => {
